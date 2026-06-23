@@ -30,11 +30,6 @@ public class AdvanceOrderStatusHandler(IApplicationDbContext db)
         order.Status = next;
         await db.SaveChangesAsync(ct);
 
-        return new OrderDto(
-            order.Id, order.Number, order.ClientName, order.ClientPhone, order.Address,
-            order.Total, order.Status.ToString(), order.Date.ToString("yyyy-MM-dd"),
-            order.CreatedAt.ToString("dd/MM HH:mm"), order.Source.ToString(), order.Note,
-            order.Items.Select(i => new OrderItemDto(i.ProductName, i.Quantity, i.UnitPrice, i.Subtotal)).ToList()
-        );
+        return order.ToDto();
     }
 }

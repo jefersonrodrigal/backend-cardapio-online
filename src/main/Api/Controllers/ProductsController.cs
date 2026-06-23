@@ -25,7 +25,16 @@ public class ProductsController(ISender sender) : ControllerBase
 
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProductRequest req, CancellationToken ct) =>
-        Ok(await sender.Send(new UpdateProductCommand(id, req.Name, req.Description, req.Price, req.Category, req.ImageUrl), ct));
+        Ok(await sender.Send(new UpdateProductCommand(
+            id,
+            req.Name,
+            req.Description,
+            req.Price,
+            req.Category,
+            req.ImageUrl,
+            req.TrackInventory,
+            req.StockQuantity,
+            req.LowStockThreshold), ct));
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
@@ -35,4 +44,12 @@ public class ProductsController(ISender sender) : ControllerBase
     }
 }
 
-public record UpdateProductRequest(string Name, string Description, decimal Price, string Category, string ImageUrl);
+public record UpdateProductRequest(
+    string Name,
+    string Description,
+    decimal Price,
+    string Category,
+    string ImageUrl,
+    bool TrackInventory = false,
+    int StockQuantity = 0,
+    int LowStockThreshold = 0);

@@ -50,13 +50,17 @@ public class CreateOrderHandler(IApplicationDbContext db)
         var number = GenerateOrderNumber();
 
         var source = Enum.TryParse<OrderSource>(cmd.Source, true, out var src) ? src : OrderSource.Site;
-        var productIds = cmd.Items.Select(i => i.ProductId).Distinct().ToList();
+        var requestedItems = cmd.Items
+            .GroupBy(i => i.ProductId)
+            .Select(g => new CreateOrderItemRequest(g.Key, g.Sum(i => i.Quantity)))
+            .ToList();
+        var productIds = requestedItems.Select(i => i.ProductId).Distinct().ToList();
         var products = await db.Products
             .Where(p => p.IsActive && productIds.Contains(p.Id))
             .ToListAsync(ct);
         var productsById = products.ToDictionary(p => p.Id);
 
-        foreach (var item in cmd.Items)
+        foreach (var item in requestedItems)
         {
             if (!productsById.ContainsKey(item.ProductId))
             {
@@ -73,8 +77,9 @@ public class CreateOrderHandler(IApplicationDbContext db)
             Address = cmd.Address,
             Source = source,
             Note = cmd.Note,
-            Items = cmd.Items.Select(i => new OrderItem
+            Items = requestedItems.Select(i => new OrderItem
             {
+                ProductId = productsById[i.ProductId].Id,
                 ProductName = productsById[i.ProductId].Name,
                 Quantity = i.Quantity,
                 UnitPrice = productsById[i.ProductId].Price
@@ -83,15 +88,35 @@ public class CreateOrderHandler(IApplicationDbContext db)
 
         order.Total = order.Items.Sum(i => i.Subtotal);
 
+        foreach (var item in requestedItems)
+        {
+            var product = productsById[item.ProductId];
+
+            if (!product.TrackInventory)
+                continue;
+
+            if (product.StockQuantity < item.Quantity)
+                throw new InvalidOperationException($"Estoque insuficiente para {product.Name}.");
+
+            var balanceBefore = product.StockQuantity;
+            product.StockQuantity -= item.Quantity;
+
+            db.InventoryMovements.Add(new InventoryMovement
+            {
+                ProductId = product.Id,
+                Type = InventoryMovementType.Venda,
+                Quantity = item.Quantity,
+                BalanceBefore = balanceBefore,
+                BalanceAfter = product.StockQuantity,
+                OrderId = order.Id,
+                Reason = $"Pedido {order.Number}"
+            });
+        }
+
         db.Orders.Add(order);
         await db.SaveChangesAsync(ct);
 
-        return new OrderDto(
-            order.Id, order.Number, order.ClientName, order.ClientPhone, order.Address,
-            order.Total, order.Status.ToString(), order.Date.ToString("yyyy-MM-dd"),
-            order.CreatedAt.ToString("dd/MM HH:mm"), order.Source.ToString(), order.Note,
-            order.Items.Select(i => new OrderItemDto(i.ProductName, i.Quantity, i.UnitPrice, i.Subtotal)).ToList()
-        );
+        return order.ToDto();
     }
 
     private static string GenerateOrderNumber()
