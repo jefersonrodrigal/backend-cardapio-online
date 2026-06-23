@@ -1,5 +1,6 @@
 using Application.Common.Interfaces;
 using Application.Features.Orders.Dtos;
+using Domain.Entities;
 using Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -20,14 +21,41 @@ public class CancelOrderHandler(IApplicationDbContext db)
         if (order.Status is OrderStatus.Entregue or OrderStatus.Cancelado)
             throw new InvalidOperationException($"Cannot cancel order with status {order.Status}.");
 
+        var productIds = order.Items
+            .Where(i => i.ProductId.HasValue)
+            .Select(i => i.ProductId!.Value)
+            .Distinct()
+            .ToList();
+        var products = await db.Products
+            .Where(p => productIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, ct);
+
+        foreach (var item in order.Items)
+        {
+            if (!item.ProductId.HasValue || !products.TryGetValue(item.ProductId.Value, out var product))
+                continue;
+
+            if (!product.TrackInventory)
+                continue;
+
+            var balanceBefore = product.StockQuantity;
+            product.StockQuantity += item.Quantity;
+
+            db.InventoryMovements.Add(new InventoryMovement
+            {
+                ProductId = product.Id,
+                Type = InventoryMovementType.Cancelamento,
+                Quantity = item.Quantity,
+                BalanceBefore = balanceBefore,
+                BalanceAfter = product.StockQuantity,
+                OrderId = order.Id,
+                Reason = $"Cancelamento do pedido {order.Number}"
+            });
+        }
+
         order.Status = OrderStatus.Cancelado;
         await db.SaveChangesAsync(ct);
 
-        return new OrderDto(
-            order.Id, order.Number, order.ClientName, order.ClientPhone, order.Address,
-            order.Total, order.Status.ToString(), order.Date.ToString("yyyy-MM-dd"),
-            order.CreatedAt.ToString("dd/MM HH:mm"), order.Source.ToString(), order.Note,
-            order.Items.Select(i => new OrderItemDto(i.ProductName, i.Quantity, i.UnitPrice, i.Subtotal)).ToList()
-        );
+        return order.ToDto();
     }
 }

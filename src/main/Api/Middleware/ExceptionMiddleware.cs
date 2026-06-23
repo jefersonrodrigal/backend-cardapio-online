@@ -38,6 +38,12 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }, JsonOptions));
         }
+        catch (DbUpdateConcurrencyException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "O estoque foi atualizado por outra operacao. Recarregue os dados e tente novamente." }, JsonOptions));
+        }
         catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
         {
             context.Response.StatusCode = (int)HttpStatusCode.Conflict;

@@ -1,5 +1,6 @@
 using Application.Common.Interfaces;
 using Application.Features.Products.Dtos;
+using Domain.Entities;
 using Domain.Enums;
 using FluentValidation;
 using MediatR;
@@ -8,7 +9,15 @@ using Microsoft.EntityFrameworkCore;
 namespace Application.Features.Products.Commands;
 
 public record UpdateProductCommand(
-    Guid Id, string Name, string Description, decimal Price, string Category, string ImageUrl
+    Guid Id,
+    string Name,
+    string Description,
+    decimal Price,
+    string Category,
+    string ImageUrl,
+    bool TrackInventory = false,
+    int StockQuantity = 0,
+    int LowStockThreshold = 0
 ) : IRequest<ProductDto>;
 
 public class UpdateProductValidator : AbstractValidator<UpdateProductCommand>
@@ -17,6 +26,8 @@ public class UpdateProductValidator : AbstractValidator<UpdateProductCommand>
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Price).GreaterThan(0);
+        RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(0);
     }
 }
 
@@ -31,15 +42,32 @@ public class UpdateProductHandler(IApplicationDbContext db)
         var category = Enum.TryParse<ProductCategory>(cmd.Category, true, out var cat)
             ? cat : product.Category;
 
+        var previousStockQuantity = product.StockQuantity;
+
         product.Name = cmd.Name;
         product.Description = cmd.Description;
         product.Price = cmd.Price;
         product.Category = category;
         product.ImageUrl = cmd.ImageUrl;
+        product.TrackInventory = cmd.TrackInventory;
+        product.StockQuantity = cmd.StockQuantity;
+        product.LowStockThreshold = cmd.LowStockThreshold;
+
+        if (product.TrackInventory && previousStockQuantity != product.StockQuantity)
+        {
+            db.InventoryMovements.Add(new InventoryMovement
+            {
+                ProductId = product.Id,
+                Type = InventoryMovementType.Ajuste,
+                Quantity = Math.Abs(product.StockQuantity - previousStockQuantity),
+                BalanceBefore = previousStockQuantity,
+                BalanceAfter = product.StockQuantity,
+                Reason = "Ajuste realizado no cadastro do produto"
+            });
+        }
 
         await db.SaveChangesAsync(ct);
 
-        return new ProductDto(product.Id, product.Name, product.Description,
-            product.Price, product.Category.ToString().ToLower(), product.ImageUrl);
+        return ProductDto.FromProduct(product);
     }
 }

@@ -24,13 +24,13 @@ public class GetProductsHandler(IApplicationDbContext db)
         }
 
         var total = await query.CountAsync(ct);
-        var items = await query
+        var products = await query
             .OrderBy(p => p.CreatedAt)
             .Skip((q.Page - 1) * q.PageSize)
             .Take(q.PageSize)
-            .Select(p => new ProductDto(p.Id, p.Name, p.Description, p.Price,
-                p.Category.ToString().ToLower(), p.ImageUrl))
             .ToListAsync(ct);
+
+        var items = products.Select(ProductDto.FromProduct).ToList();
 
         return PaginatedResult<ProductDto>.Create(items, total, q.Page, q.PageSize);
     }

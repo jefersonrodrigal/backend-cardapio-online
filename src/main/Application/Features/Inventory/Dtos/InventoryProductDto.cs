@@ -1,13 +1,11 @@
 using Application.Common.Inventory;
 using Domain.Entities;
 
-namespace Application.Features.Products.Dtos;
+namespace Application.Features.Inventory.Dtos;
 
-public record ProductDto(
+public record InventoryProductDto(
     Guid Id,
     string Name,
-    string Description,
-    decimal Price,
     string Category,
     string ImageUrl,
     bool TrackInventory,
@@ -17,12 +15,10 @@ public record ProductDto(
     string StockStatus
 )
 {
-    public static ProductDto FromProduct(Product product) =>
+    public static InventoryProductDto FromProduct(Product product) =>
         new(
             product.Id,
             product.Name,
-            product.Description,
-            product.Price,
             product.Category.ToString().ToLowerInvariant(),
             product.ImageUrl,
             product.TrackInventory,

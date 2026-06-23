@@ -8,7 +8,14 @@ using MediatR;
 namespace Application.Features.Products.Commands;
 
 public record CreateProductCommand(
-    string Name, string Description, decimal Price, string Category, string ImageUrl
+    string Name,
+    string Description,
+    decimal Price,
+    string Category,
+    string ImageUrl,
+    bool TrackInventory = false,
+    int StockQuantity = 0,
+    int LowStockThreshold = 0
 ) : IRequest<ProductDto>;
 
 public class CreateProductValidator : AbstractValidator<CreateProductCommand>
@@ -18,6 +25,8 @@ public class CreateProductValidator : AbstractValidator<CreateProductCommand>
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Price).GreaterThan(0);
         RuleFor(x => x.Category).NotEmpty();
+        RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(0);
     }
 }
 
@@ -35,13 +44,29 @@ public class CreateProductHandler(IApplicationDbContext db)
             Description = cmd.Description,
             Price = cmd.Price,
             Category = category,
-            ImageUrl = cmd.ImageUrl
+            ImageUrl = cmd.ImageUrl,
+            TrackInventory = cmd.TrackInventory,
+            StockQuantity = cmd.StockQuantity,
+            LowStockThreshold = cmd.LowStockThreshold
         };
 
         db.Products.Add(product);
+
+        if (product.TrackInventory && product.StockQuantity > 0)
+        {
+            db.InventoryMovements.Add(new InventoryMovement
+            {
+                ProductId = product.Id,
+                Type = InventoryMovementType.Entrada,
+                Quantity = product.StockQuantity,
+                BalanceBefore = 0,
+                BalanceAfter = product.StockQuantity,
+                Reason = "Estoque inicial do produto"
+            });
+        }
+
         await db.SaveChangesAsync(ct);
 
-        return new ProductDto(product.Id, product.Name, product.Description,
-            product.Price, product.Category.ToString().ToLower(), product.ImageUrl);
+        return ProductDto.FromProduct(product);
     }
 }

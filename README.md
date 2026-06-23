@@ -7,6 +7,7 @@ Backend da plataforma de cardapio online, construido em ASP.NET Core com arquite
 O projeto expoe uma API HTTP para:
 
 - consultar e administrar produtos
+- controlar estoque e historico de movimentacoes
 - cadastrar e autenticar clientes
 - criar e acompanhar pedidos
 - configurar dados do estabelecimento
@@ -16,7 +17,7 @@ O projeto expoe uma API HTTP para:
 O sistema separa claramente os fluxos publicos e administrativos:
 
 - publico: cardapio, criacao de pedidos, cadastro/autenticacao de clientes e leitura do estabelecimento
-- administrativo: login JWT, gestao de produtos, clientes, pedidos, uploads, estabelecimento e integracoes
+- administrativo: login JWT, gestao de produtos, estoque, clientes, pedidos, uploads, estabelecimento e integracoes
 
 ## Stack tecnica
 
@@ -294,13 +295,15 @@ A camada de infraestrutura normaliza a connection string:
 - `Estabelecimento`
   Dados publicos do restaurante/loja, logo, categoria, endereco, WhatsApp e horarios.
 - `Product`
-  Produto do cardapio com nome, descricao, preco, categoria, imagem e flag `IsActive`.
+  Produto do cardapio com nome, descricao, preco, categoria, imagem, flag `IsActive` e configuracoes de estoque.
+- `InventoryMovement`
+  Historico auditavel de entradas, vendas, cancelamentos, ajustes e perdas de estoque.
 - `Client`
   Cliente com contato, endereco completo e senha hash.
 - `Order`
   Pedido com numero unico, cliente vinculado opcionalmente, endereco, origem, status, total e itens.
 - `OrderItem`
-  Snapshot dos itens do pedido, incluindo nome do produto, quantidade e preco unitario.
+  Snapshot dos itens do pedido, incluindo produto vinculado, nome do produto, quantidade e preco unitario.
 - `Integration`
   Configuracoes de integracoes externas em uma estrutura unificada.
 
@@ -465,6 +468,31 @@ Notas tecnicas:
 - apenas produtos ativos podem entrar no pedido
 - se existir cliente com o mesmo telefone, o pedido e vinculado a ele
 - o total e calculado no backend
+- produtos com controle de estoque baixam quantidade na criacao do pedido
+- cancelamentos de pedidos ainda nao entregues repõem o estoque dos itens controlados
+
+### Inventory
+
+- `GET /api/Inventory`
+  Protegido. Lista produtos ativos com dados de estoque.
+  Filtros: `page`, `pageSize`, `status`, `search`
+- `GET /api/Inventory/movements`
+  Protegido. Lista movimentacoes de estoque.
+  Filtros: `productId`, `page`, `pageSize`
+- `POST /api/Inventory/movements`
+  Protegido. Registra entrada, perda ou ajuste manual.
+
+Payload de movimentacao:
+
+```json
+{
+  "productId": "00000000-0000-0000-0000-000000000000",
+  "type": "entrada",
+  "quantity": 10,
+  "newQuantity": null,
+  "reason": "Compra de reposicao"
+}
+```
 
 ### Estabelecimento
 

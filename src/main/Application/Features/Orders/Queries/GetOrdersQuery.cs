@@ -27,12 +27,7 @@ public class GetOrdersHandler(IApplicationDbContext db)
             .Take(q.PageSize)
             .ToListAsync(ct);
 
-        var dtos = orders.Select(o => new OrderDto(
-            o.Id, o.Number, o.ClientName, o.ClientPhone, o.Address, o.Total,
-            o.Status.ToString(), o.Date.ToString("yyyy-MM-dd"),
-            o.CreatedAt.ToString("dd/MM HH:mm"), o.Source.ToString(), o.Note,
-            o.Items.Select(i => new OrderItemDto(i.ProductName, i.Quantity, i.UnitPrice, i.Subtotal)).ToList()
-        )).ToList();
+        var dtos = orders.Select(o => o.ToDto()).ToList();
 
         return PaginatedResult<OrderDto>.Create(dtos, total, q.Page, q.PageSize);
     }
