@@ -1,7 +1,6 @@
 using Application.Common.Interfaces;
 using Application.Common.Models;
 using Application.Features.Products.Dtos;
-using Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,10 +16,10 @@ public class GetProductsHandler(IApplicationDbContext db)
     {
         var query = db.Products.Where(p => p.IsActive);
 
-        if (!string.IsNullOrWhiteSpace(q.Category) &&
-            Enum.TryParse<ProductCategory>(q.Category, true, out var cat))
+        if (!string.IsNullOrWhiteSpace(q.Category))
         {
-            query = query.Where(p => p.Category == cat);
+            var slug = q.Category.ToLowerInvariant();
+            query = query.Where(p => p.Category == slug);
         }
 
         var total = await query.CountAsync(ct);

@@ -26,6 +26,7 @@ public class UpdateProductValidator : AbstractValidator<UpdateProductCommand>
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Price).GreaterThan(0);
+        RuleFor(x => x.Category).NotEmpty().MaximumLength(50);
         RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
         RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(0);
     }
@@ -39,15 +40,12 @@ public class UpdateProductHandler(IApplicationDbContext db)
         var product = await db.Products.FirstOrDefaultAsync(p => p.Id == cmd.Id, ct)
             ?? throw new KeyNotFoundException($"Product {cmd.Id} not found.");
 
-        var category = Enum.TryParse<ProductCategory>(cmd.Category, true, out var cat)
-            ? cat : product.Category;
-
         var previousStockQuantity = product.StockQuantity;
 
         product.Name = cmd.Name;
         product.Description = cmd.Description;
         product.Price = cmd.Price;
-        product.Category = category;
+        product.Category = cmd.Category.ToLowerInvariant();
         product.ImageUrl = cmd.ImageUrl;
         product.TrackInventory = cmd.TrackInventory;
         product.StockQuantity = cmd.StockQuantity;

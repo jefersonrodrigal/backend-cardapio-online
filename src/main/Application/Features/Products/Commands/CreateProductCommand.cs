@@ -24,7 +24,7 @@ public class CreateProductValidator : AbstractValidator<CreateProductCommand>
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Price).GreaterThan(0);
-        RuleFor(x => x.Category).NotEmpty();
+        RuleFor(x => x.Category).NotEmpty().MaximumLength(50);
         RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
         RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(0);
     }
@@ -35,15 +35,12 @@ public class CreateProductHandler(IApplicationDbContext db)
 {
     public async Task<ProductDto> Handle(CreateProductCommand cmd, CancellationToken ct)
     {
-        var category = Enum.TryParse<ProductCategory>(cmd.Category, true, out var cat)
-            ? cat : ProductCategory.Outro;
-
         var product = new Product
         {
             Name = cmd.Name,
             Description = cmd.Description,
             Price = cmd.Price,
-            Category = category,
+            Category = cmd.Category.ToLowerInvariant(),
             ImageUrl = cmd.ImageUrl,
             TrackInventory = cmd.TrackInventory,
             StockQuantity = cmd.StockQuantity,

@@ -23,7 +23,7 @@ public record ProductDto(
             product.Name,
             product.Description,
             product.Price,
-            product.Category.ToString().ToLowerInvariant(),
+            product.Category,
             product.ImageUrl,
             product.TrackInventory,
             product.StockQuantity,

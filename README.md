@@ -1,4 +1,4 @@
-# Cardapio Online Backend
+# Cardapio Online — Backend
 
 Backend da plataforma de cardapio online, construido em ASP.NET Core com arquitetura em camadas, EF Core e autenticacao JWT para as rotas administrativas.
 
@@ -6,7 +6,8 @@ Backend da plataforma de cardapio online, construido em ASP.NET Core com arquite
 
 O projeto expoe uma API HTTP para:
 
-- consultar e administrar produtos
+- consultar e administrar categorias do cardapio
+- consultar e administrar produtos vinculados a categorias
 - controlar estoque e historico de movimentacoes
 - cadastrar e autenticar clientes
 - criar e acompanhar pedidos
@@ -16,8 +17,8 @@ O projeto expoe uma API HTTP para:
 
 O sistema separa claramente os fluxos publicos e administrativos:
 
-- publico: cardapio, criacao de pedidos, cadastro/autenticacao de clientes e leitura do estabelecimento
-- administrativo: login JWT, gestao de produtos, estoque, clientes, pedidos, uploads, estabelecimento e integracoes
+- publico: categorias, cardapio, criacao de pedidos, cadastro/autenticacao de clientes e leitura do estabelecimento
+- administrativo: login JWT, gestao de categorias, produtos, estoque, clientes, pedidos, uploads, estabelecimento e integracoes
 
 ## Stack tecnica
 
@@ -61,9 +62,32 @@ O codigo segue um estilo proximo de Clean Architecture / Onion Architecture.
 │  ├─ workload-install.ps1
 │  └─ main/
 │     ├─ Api/
+│     │  ├─ Controllers/
+│     │  │  ├─ AuthController.cs
+│     │  │  ├─ CategoriesController.cs
+│     │  │  ├─ ClientsController.cs
+│     │  │  ├─ EstabelecimentoController.cs
+│     │  │  ├─ IntegrationsController.cs
+│     │  │  ├─ InventoryController.cs
+│     │  │  ├─ OrdersController.cs
+│     │  │  ├─ ProductsController.cs
+│     │  │  └─ UploadsController.cs
+│     │  └─ Middleware/
 │     ├─ Application/
+│     │  └─ Features/
+│     │     ├─ Categories/
+│     │     ├─ Clients/
+│     │     ├─ Estabelecimento/
+│     │     ├─ Integrations/
+│     │     ├─ Inventory/
+│     │     ├─ Orders/
+│     │     └─ Products/
 │     ├─ Domain/
+│     │  ├─ Entities/
+│     │  └─ Enums/
 │     └─ Infrastructure/
+│        ├─ Data/
+│        └─ Migrations/
 ├─ .gitignore
 └─ README.md
 ```
@@ -234,7 +258,7 @@ Authorization: Bearer <jwt>
 
 ### Clientes
 
-Clientes nao recebem JWT. A autenticacao do cliente hoje retorna um `ClientDto` com os dados e resumo do historico.
+Clientes nao recebem JWT. A autenticacao do cliente retorna um `ClientDto` com os dados e resumo do historico.
 
 Endpoint:
 
@@ -292,10 +316,12 @@ A camada de infraestrutura normaliza a connection string:
 
 ### Entidades principais
 
+- `Category`
+  Categoria do cardapio com slug unico gerado automaticamente do nome, nome de exibicao e ordem de apresentacao. Categorias sao usadas para organizar os produtos no cardapio publico e no painel administrativo.
 - `Estabelecimento`
   Dados publicos do restaurante/loja, logo, categoria, endereco, WhatsApp e horarios.
 - `Product`
-  Produto do cardapio com nome, descricao, preco, categoria, imagem, flag `IsActive` e configuracoes de estoque.
+  Produto do cardapio com nome, descricao, preco, slug de categoria, imagem, flag `IsActive` e configuracoes de estoque.
 - `InventoryMovement`
   Historico auditavel de entradas, vendas, cancelamentos, ajustes e perdas de estoque.
 - `Client`
@@ -307,16 +333,24 @@ A camada de infraestrutura normaliza a connection string:
 - `Integration`
   Configuracoes de integracoes externas em uma estrutura unificada.
 
+## Categorias de produto
+
+As categorias sao entidades dinamicas gerenciadas via CRUD administrativo. O slug e gerado automaticamente a partir do nome no momento da criacao (ex: "Hamburguer" → `hamburguer`, "Porcao" → `porcao`) e nao pode ser alterado posteriormente, garantindo estabilidade das referencias nos produtos.
+
+As 6 categorias iniciais sao criadas automaticamente pela migration:
+
+| Slug | Nome | Ordem |
+|---|---|---|
+| `hamburguer` | Hamburguer | 1 |
+| `pizza` | Pizza | 2 |
+| `bebida` | Bebida | 3 |
+| `sobremesa` | Sobremesa | 4 |
+| `porcao` | Porcao | 5 |
+| `outro` | Outro | 6 |
+
+Uma categoria nao pode ser excluida enquanto houver produtos ativos vinculados a ela.
+
 ## Enums do dominio
-
-### Categorias de produto
-
-- `Hamburguer`
-- `Pizza`
-- `Bebida`
-- `Sobremesa`
-- `Porcao`
-- `Outro`
 
 ### Status do pedido
 
@@ -371,11 +405,49 @@ Parametros comuns:
 - `POST /api/Auth/login`
   Login administrativo e emissao de JWT.
 
+### Categories
+
+- `GET /api/Categories`
+  Publico. Lista categorias ativas ordenadas por `SortOrder`.
+- `POST /api/Categories`
+  Protegido. Cria categoria. O slug e gerado automaticamente do nome.
+- `PUT /api/Categories/{id}`
+  Protegido. Atualiza nome e ordem. O slug nao e alterado.
+- `DELETE /api/Categories/{id}`
+  Protegido. Exclui categoria. Falha com 422 se houver produtos ativos na categoria.
+
+Resposta de listagem:
+
+```json
+[
+  { "id": 1, "slug": "hamburguer", "name": "Hamburguer", "sortOrder": 1 },
+  { "id": 2, "slug": "bebida",     "name": "Bebida",     "sortOrder": 3 }
+]
+```
+
+Payload de criacao:
+
+```json
+{
+  "name": "Sobremesa",
+  "sortOrder": 4
+}
+```
+
+Payload de atualizacao:
+
+```json
+{
+  "name": "Sobremesas Especiais",
+  "sortOrder": 4
+}
+```
+
 ### Products
 
 - `GET /api/Products`
   Publico. Lista produtos ativos com paginacao.
-  Filtros: `page`, `pageSize`, `category`
+  Filtros: `page`, `pageSize`, `category` (slug da categoria)
 - `POST /api/Products`
   Protegido. Cria produto.
 - `PUT /api/Products/{id}`
@@ -390,10 +462,12 @@ Payload de criacao/atualizacao:
   "name": "X-Burger",
   "description": "Pao, carne e queijo",
   "price": 29.9,
-  "category": "Hamburguer",
+  "category": "hamburguer",
   "imageUrl": "http://localhost:5115/uploads/20260620/img.png"
 }
 ```
+
+O campo `category` recebe o slug da categoria (minusculas). Valores sao normalizados para minusculas antes da persistencia.
 
 ### Clients
 
@@ -517,8 +591,10 @@ Payload:
 
 ### Integrations
 
+Todos os endpoints de integracoes requerem autenticacao.
+
 - `GET /api/Integrations`
-  Protegido. Retorna o overview de todas as integracoes.
+  Retorna o overview de todas as integracoes.
 - `PUT /api/Integrations/ifood`
 - `PUT /api/Integrations/anotai`
 - `PUT /api/Integrations/ubereats`
@@ -530,99 +606,14 @@ Payload:
 
 Payloads esperados:
 
-- `ifood`
-
-```json
-{
-  "enabled": true,
-  "clientId": "xxx",
-  "clientSecret": "yyy",
-  "merchantId": "zzz"
-}
-```
-
-- `anotai`
-
-```json
-{
-  "enabled": true,
-  "apiToken": "xxx",
-  "accountId": "yyy",
-  "webhookUrl": "https://example.com/webhook"
-}
-```
-
-- `ubereats`
-
-```json
-{
-  "enabled": true,
-  "clientId": "xxx",
-  "clientSecret": "yyy",
-  "storeId": "zzz",
-  "webhookSigningSecret": "abc"
-}
-```
-
-- `99food`
-
-```json
-{
-  "enabled": true,
-  "clientId": "xxx",
-  "clientSecret": "yyy",
-  "storeId": "zzz",
-  "webhookUrl": "https://example.com/webhook"
-}
-```
-
-- `aiagents`
-
-```json
-{
-  "enabled": true,
-  "provider": "openai",
-  "apiKey": "xxx",
-  "model": "gpt-4.1",
-  "assistantId": "asst_123",
-  "webhookUrl": "https://example.com/webhook"
-}
-```
-
-- `whatsapp`
-
-```json
-{
-  "enabled": true,
-  "phoneNumberId": "xxx",
-  "businessAccountId": "yyy",
-  "accessToken": "zzz",
-  "appSecret": "abc",
-  "verifyToken": "token"
-}
-```
-
-- `takeblip`
-
-```json
-{
-  "enabled": true,
-  "botShortName": "meu-bot",
-  "authorizationKey": "key",
-  "webhookUrl": "https://example.com/webhook"
-}
-```
-
-- `zenvia`
-
-```json
-{
-  "enabled": true,
-  "apiToken": "xxx",
-  "channelId": "yyy",
-  "webhookUrl": "https://example.com/webhook"
-}
-```
+- `ifood` — `{ "enabled", "clientId", "clientSecret", "merchantId" }`
+- `anotai` — `{ "enabled", "apiToken", "accountId", "webhookUrl" }`
+- `ubereats` — `{ "enabled", "clientId", "clientSecret", "storeId", "webhookSigningSecret" }`
+- `99food` — `{ "enabled", "clientId", "clientSecret", "storeId", "webhookUrl" }`
+- `aiagents` — `{ "enabled", "provider", "apiKey", "model", "assistantId", "webhookUrl" }`
+- `whatsapp` — `{ "enabled", "phoneNumberId", "businessAccountId", "accessToken", "appSecret", "verifyToken" }`
+- `takeblip` — `{ "enabled", "botShortName", "authorizationKey", "webhookUrl" }`
+- `zenvia` — `{ "enabled", "apiToken", "channelId", "webhookUrl" }`
 
 ### Uploads
 
@@ -631,6 +622,8 @@ Payloads esperados:
 
 ## Regras de negocio observadas
 
+- categorias nao podem ser excluidas enquanto houver produtos ativos vinculados
+- slugs de categoria sao gerados automaticamente a partir do nome e sao imutaveis
 - produtos sao retornados apenas se `IsActive = true`
 - exclusao de produto e logica, nao fisica
 - clientes precisam de email unico e telefone unico
@@ -653,7 +646,7 @@ O middleware global padroniza respostas:
 - `409 Conflict`
   Violacao de unicidade no banco
 - `422 Unprocessable Entity`
-  Regras de negocio disparando `InvalidOperationException`
+  Regras de negocio disparando `InvalidOperationException` (ex: excluir categoria com produtos ativos)
 - `500 Internal Server Error`
   Erro inesperado
 
@@ -661,7 +654,7 @@ Exemplos:
 
 ```json
 {
-  "error": "Ja existe um cliente cadastrado com este e-mail."
+  "error": "Nao e possivel excluir uma categoria que possui produtos ativos."
 }
 ```
 
@@ -669,8 +662,8 @@ Exemplos:
 {
   "errors": [
     {
-      "propertyName": "Password",
-      "errorMessage": "'Password' must not be empty."
+      "propertyName": "Name",
+      "errorMessage": "'Name' must not be empty."
     }
   ]
 }
@@ -691,32 +684,31 @@ Em `Development`, tambem ha:
 
 Isso faz com que queries SQL aparecam no log local durante desenvolvimento.
 
-## Estado atual do projeto
+## Migrations
 
-- a solucao principal e `src/Backend.slnx`
-- existem migrations versionadas para criacao inicial e evolucao de clientes, logo, integracoes e numero unico de pedido
-- a API compila com sucesso em `2026-06-20`
-- nao foram encontrados projetos de teste automatizado no repositorio
-
-## Validacao realizada
-
-Comando executado com sucesso:
-
-```powershell
-dotnet build src\Backend.slnx
-```
+| Migration | Descricao |
+|---|---|
+| `20260614211105_InitialCreate` | Schema inicial com Estabelecimento, Products, Clients, Orders e OrderItems |
+| `20260614222358_AddEstabelecimentoLogo` | Campo `LogoUrl` no Estabelecimento |
+| `20260615134836_AddClientAuthentication` | Autenticacao de clientes com hash de senha |
+| `20260615142217_AddClientFullAddress` | Endereco completo do cliente |
+| `20260616145439_AddIntegrations` | Tabela de integracoes externas |
+| `20260620141928_AddUniqueOrderNumber` | Numero unico de pedido |
+| `20260620144545_AlignEstabelecimentoUpdatedAtWithDatabase` | Ajuste de `UpdatedAt` gerado pelo banco |
+| `20260623132455_AddInventoryControl` | Controle de estoque e movimentacoes |
+| `20260624000000_AddCategories` | Tabela `Categories`, seed das 6 categorias iniciais e normalizacao dos slugs em `Products` |
 
 ## Pontos de atencao
 
 - `appsettings.json` deixa `AdminAuth:PasswordHash` e `AdminAuth:JwtSecret` vazios por padrao, entao a API depende de User Secrets ou configuracao equivalente
-- o CORS esta restrito a `http://localhost:4200`
-- o endpoint `Api.http` ainda contem o exemplo padrao de `weatherforecast` e nao representa a API atual
+- o CORS esta restrito a `http://localhost:4200`; para producao, atualizar `Program.cs`
 - como as migrations sao aplicadas automaticamente no startup, a conexao com o banco precisa estar correta antes de subir a API
+- o campo `category` nos produtos armazena slugs em minusculas; slugs fora da tabela de categorias ficam visiveis apenas nos filtros, mas nao aparecem no cardapio publico
 
 ## Sugestoes de proximos passos
 
 - adicionar testes automatizados para handlers e controllers
 - versionar um `appsettings.Example.json` ou `.env` equivalente para onboarding
-- publicar uma colecao de requests atualizada no lugar do `Api.http` padrao
-- considerar mascaramento de segredos nas respostas de integracoes, se essa API for consumida por clientes menos confiaveis
-
+- publicar uma colecao de requests atualizada
+- considerar mascaramento de segredos nas respostas de integracoes
+- restringir CORS para a origem de producao do frontend
