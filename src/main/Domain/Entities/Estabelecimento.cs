@@ -11,5 +11,6 @@ public class Estabelecimento
     public TimeOnly OpenTime { get; set; }
     public TimeOnly CloseTime { get; set; }
     public decimal DeliveryFee { get; set; }
+    public bool SendOrderTrackingViaWhatsApp { get; set; }
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

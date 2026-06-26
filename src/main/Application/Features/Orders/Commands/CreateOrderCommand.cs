@@ -18,7 +18,8 @@ public record CreateOrderCommand(
     string Source,
     IReadOnlyList<CreateOrderItemRequest> Items,
     string? Note = null,
-    string? OrderType = null
+    string? OrderType = null,
+    string? TrackingBaseUrl = null
 ) : IRequest<OrderDto>;
 
 public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
@@ -28,6 +29,7 @@ public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
         RuleFor(x => x.ClientName).NotEmpty().MaximumLength(200);
         RuleFor(x => x.ClientPhone).NotEmpty().MaximumLength(20);
         RuleFor(x => x.Address).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.TrackingBaseUrl).MaximumLength(500);
         RuleFor(x => x.Items).NotEmpty();
         RuleForEach(x => x.Items).ChildRules(item =>
         {
@@ -37,7 +39,9 @@ public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
     }
 }
 
-public class CreateOrderHandler(IApplicationDbContext db)
+public class CreateOrderHandler(
+    IApplicationDbContext db,
+    IOrderTrackingNotificationSender orderTrackingNotificationSender)
     : IRequestHandler<CreateOrderCommand, OrderDto>
 {
     public async Task<OrderDto> Handle(CreateOrderCommand cmd, CancellationToken ct)
@@ -123,6 +127,11 @@ public class CreateOrderHandler(IApplicationDbContext db)
 
         db.Orders.Add(order);
         await db.SaveChangesAsync(ct);
+
+        if (est?.SendOrderTrackingViaWhatsApp == true)
+        {
+            await orderTrackingNotificationSender.SendOrderTrackingLinkAsync(order, cmd.TrackingBaseUrl, ct);
+        }
 
         return order.ToDto();
     }

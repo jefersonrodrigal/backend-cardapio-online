@@ -1,5 +1,6 @@
 using Application.Common.Interfaces;
 using Infrastructure.Data;
+using Infrastructure.Notifications;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +22,7 @@ public static class DependencyInjection
                 sql.EnableRetryOnFailure(3)));
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.AddHttpClient<IOrderTrackingNotificationSender, WhatsAppOrderTrackingNotificationSender>();
 
         return services;
     }

@@ -8,5 +8,6 @@ public record EstabelecimentoDto(
     string Whatsapp,
     string OpenTime,
     string CloseTime,
-    decimal DeliveryFee
+    decimal DeliveryFee,
+    bool SendOrderTrackingViaWhatsApp
 );

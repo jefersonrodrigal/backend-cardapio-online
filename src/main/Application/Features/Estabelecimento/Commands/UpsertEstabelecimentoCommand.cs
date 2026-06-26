@@ -14,7 +14,8 @@ public record UpsertEstabelecimentoCommand(
     string Whatsapp,
     string OpenTime,
     string CloseTime,
-    decimal DeliveryFee
+    decimal DeliveryFee,
+    bool SendOrderTrackingViaWhatsApp
 ) : IRequest<EstabelecimentoDto>;
 
 public class UpsertEstabelecimentoValidator : AbstractValidator<UpsertEstabelecimentoCommand>
@@ -49,6 +50,7 @@ public class UpsertEstabelecimentoHandler(IApplicationDbContext db)
         est.OpenTime = TimeOnly.Parse(cmd.OpenTime);
         est.CloseTime = TimeOnly.Parse(cmd.CloseTime);
         est.DeliveryFee = cmd.DeliveryFee >= 0 ? cmd.DeliveryFee : 0;
+        est.SendOrderTrackingViaWhatsApp = cmd.SendOrderTrackingViaWhatsApp;
         est.UpdatedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
@@ -61,7 +63,8 @@ public class UpsertEstabelecimentoHandler(IApplicationDbContext db)
             est.Whatsapp,
             est.OpenTime.ToString("HH:mm"),
             est.CloseTime.ToString("HH:mm"),
-            est.DeliveryFee
+            est.DeliveryFee,
+            est.SendOrderTrackingViaWhatsApp
         );
     }
 }

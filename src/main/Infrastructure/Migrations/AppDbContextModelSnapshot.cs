@@ -168,6 +168,11 @@ namespace Infrastructure.Migrations
                     b.Property<TimeOnly>("OpenTime")
                         .HasColumnType("time");
 
+                    b.Property<bool>("SendOrderTrackingViaWhatsApp")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 

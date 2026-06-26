@@ -12,11 +12,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.SectionName));
 builder.Services.Configure<AdminAuthOptions>(builder.Configuration.GetSection(AdminAuthOptions.SectionName));
+builder.Services.Configure<ClientAuthOptions>(builder.Configuration.GetSection(ClientAuthOptions.SectionName));
 var apiOptions = builder.Configuration.GetSection(ApiOptions.SectionName).Get<ApiOptions>() ?? new ApiOptions();
 var authOptions = builder.Configuration.GetSection(AdminAuthOptions.SectionName).Get<AdminAuthOptions>()
     ?? throw new InvalidOperationException("Admin auth configuration is missing.");
+var clientAuthOptions = builder.Configuration.GetSection(ClientAuthOptions.SectionName).Get<ClientAuthOptions>() ?? new ClientAuthOptions();
 ValidateApi(apiOptions);
 ValidateAdminAuth(authOptions);
+ValidateClientAuth(clientAuthOptions);
 var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authOptions.JwtSecret));
 
 builder.Services.AddControllers();
@@ -24,7 +27,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -56,6 +59,33 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 await context.Response.WriteAsync(JsonSerializer.Serialize(new
                 {
                     error = "Seu usuario nao tem permissao para acessar este recurso."
+                }));
+            }
+        };
+    })
+    .AddJwtBearer(ClientAuthOptions.AuthenticationScheme, options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = clientAuthOptions.JwtIssuer,
+            ValidAudience = clientAuthOptions.JwtAudience,
+            IssuerSigningKey = signingKey,
+            ClockSkew = TimeSpan.Zero
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new
+                {
+                    error = "Acesso do cliente obrigatorio. Entre novamente e tente outra vez."
                 }));
             }
         };
@@ -109,4 +139,16 @@ static void ValidateApi(ApiOptions options)
 {
     if (string.IsNullOrWhiteSpace(options.BaseUrl))
         throw new InvalidOperationException("Api.BaseUrl is required.");
+}
+
+static void ValidateClientAuth(ClientAuthOptions options)
+{
+    if (string.IsNullOrWhiteSpace(options.JwtIssuer))
+        throw new InvalidOperationException("ClientAuth.JwtIssuer is required.");
+
+    if (string.IsNullOrWhiteSpace(options.JwtAudience))
+        throw new InvalidOperationException("ClientAuth.JwtAudience is required.");
+
+    if (options.TokenExpirationMinutes <= 0)
+        throw new InvalidOperationException("ClientAuth.TokenExpirationMinutes must be greater than zero.");
 }
