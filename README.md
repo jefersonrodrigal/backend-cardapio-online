@@ -10,8 +10,8 @@ O projeto expoe uma API HTTP para:
 - consultar e administrar produtos vinculados a categorias
 - controlar estoque e historico de movimentacoes
 - cadastrar e autenticar clientes
-- criar e acompanhar pedidos
-- configurar dados do estabelecimento
+- criar e acompanhar pedidos (com taxa de entrega automatica para pedidos do tipo Entrega)
+- configurar dados do estabelecimento, incluindo taxa de entrega
 - armazenar configuracoes de integracoes externas
 - fazer upload de imagens servidas pelo proprio backend
 
@@ -319,7 +319,7 @@ A camada de infraestrutura normaliza a connection string:
 - `Category`
   Categoria do cardapio com slug unico gerado automaticamente do nome, nome de exibicao e ordem de apresentacao. Categorias sao usadas para organizar os produtos no cardapio publico e no painel administrativo.
 - `Estabelecimento`
-  Dados publicos do restaurante/loja, logo, categoria, endereco, WhatsApp e horarios.
+  Dados publicos do restaurante/loja: logo, categoria, endereco, WhatsApp, horarios e taxa de entrega (`DeliveryFee`).
 - `Product`
   Produto do cardapio com nome, descricao, preco, slug de categoria, imagem, flag `IsActive` e configuracoes de estoque.
 - `InventoryMovement`
@@ -327,7 +327,7 @@ A camada de infraestrutura normaliza a connection string:
 - `Client`
   Cliente com contato, endereco completo e senha hash.
 - `Order`
-  Pedido com numero unico, cliente vinculado opcionalmente, endereco, origem, status, total e itens.
+  Pedido com numero unico, cliente vinculado opcionalmente, endereco, origem, tipo (`OrderType`), taxa de entrega (`DeliveryFee`), status, total e itens.
 - `OrderItem`
   Snapshot dos itens do pedido, incluindo produto vinculado, nome do produto, quantidade e preco unitario.
 - `Integration`
@@ -526,6 +526,7 @@ Payload de criacao:
   "clientPhone": "11999999999",
   "address": "Rua A, 123 - Centro - Sao Paulo/SP",
   "source": "Site",
+  "orderType": "Entrega",
   "note": "Sem cebola",
   "items": [
     {
@@ -536,12 +537,16 @@ Payload de criacao:
 }
 ```
 
+O campo `orderType` aceita os valores `Entrega`, `Retirada` e `ConsumoLocal`. Quando omitido ou nulo, o pedido e tratado como entrega.
+
 Notas tecnicas:
 
 - o numero do pedido e gerado automaticamente no formato `P<timestamp><sufixoHex>`
 - apenas produtos ativos podem entrar no pedido
 - se existir cliente com o mesmo telefone, o pedido e vinculado a ele
-- o total e calculado no backend
+- o total e calculado no backend: `soma dos itens + taxa de entrega (quando aplicavel)`
+- a taxa de entrega e lida do registro do `Estabelecimento` no momento da criacao do pedido e gravada como snapshot no campo `DeliveryFee` do pedido
+- pedidos com `orderType` igual a `Entrega` (ou sem `orderType`) recebem a taxa; `Retirada` e `ConsumoLocal` nao recebem taxa
 - produtos com controle de estoque baixam quantidade na criacao do pedido
 - cancelamentos de pedidos ainda nao entregues repõem o estoque dos itens controlados
 
@@ -585,9 +590,12 @@ Payload:
   "address": "Av. Principal, 1000",
   "whatsapp": "5511999999999",
   "openTime": "18:00",
-  "closeTime": "23:59"
+  "closeTime": "23:59",
+  "deliveryFee": 5.00
 }
 ```
+
+O campo `deliveryFee` e obrigatorio no payload. Use `0` para nao cobrar taxa. Valores negativos sao normalizados para `0`.
 
 ### Integrations
 
@@ -629,8 +637,11 @@ Payloads esperados:
 - clientes precisam de email unico e telefone unico
 - senha de admin e senha de cliente sao armazenadas com PBKDF2 SHA-256
 - pedidos usam snapshot do nome e preco do produto no momento da compra
+- a taxa de entrega aplicada ao pedido e um snapshot do valor configurado no estabelecimento no momento da criacao; alteracoes futuras na taxa nao afetam pedidos ja criados
+- a taxa de entrega incide apenas sobre pedidos do tipo `Entrega` ou sem `orderType`; `Retirada` e `ConsumoLocal` tem `DeliveryFee = 0`
+- o `Total` do pedido ja inclui a taxa de entrega: `Total = soma(itens) + DeliveryFee`
 - listagem de clientes conta apenas pedidos nao cancelados em `ordersCount`
-- `totalSpent` do cliente soma apenas pedidos `Entregue`
+- `totalSpent` do cliente soma apenas pedidos `Entregue` (incluindo a taxa de entrega, pois o `Total` ja a contempla)
 - a configuracao de estabelecimento e tratada como registro unico
 
 ## Tratamento de erros
@@ -697,6 +708,7 @@ Isso faz com que queries SQL aparecam no log local durante desenvolvimento.
 | `20260620144545_AlignEstabelecimentoUpdatedAtWithDatabase` | Ajuste de `UpdatedAt` gerado pelo banco |
 | `20260623132455_AddInventoryControl` | Controle de estoque e movimentacoes |
 | `20260624000000_AddCategories` | Tabela `Categories`, seed das 6 categorias iniciais e normalizacao dos slugs em `Products` |
+| `AddDeliveryFee` | Campo `DeliveryFee` em `Estabelecimentos` e campos `DeliveryFee` + `OrderType` em `Orders` |
 
 ## Pontos de atencao
 

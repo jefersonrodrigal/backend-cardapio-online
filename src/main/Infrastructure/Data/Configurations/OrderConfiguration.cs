@@ -16,6 +16,8 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.Total).HasColumnType("decimal(18,2)");
         builder.Property(o => o.Status).HasConversion<string>().HasMaxLength(20);
         builder.Property(o => o.Source).HasConversion<string>().HasMaxLength(20);
+        builder.Property(o => o.OrderType).HasMaxLength(20);
+        builder.Property(o => o.DeliveryFee).HasColumnType("decimal(18,2)");
         builder.Property(o => o.Note).HasMaxLength(500);
         builder.HasIndex(o => o.Date);
         builder.HasIndex(o => o.Number).IsUnique();

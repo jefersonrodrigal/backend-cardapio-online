@@ -16,6 +16,8 @@ public class Order
     public DateOnly Date { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public OrderSource Source { get; set; }
+    public string? OrderType { get; set; }
+    public decimal DeliveryFee { get; set; }
     public string? Note { get; set; }
     public ICollection<OrderItem> Items { get; set; } = [];
 }

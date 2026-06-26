@@ -31,7 +31,8 @@ public class GetEstabelecimentoHandler(IApplicationDbContext db)
             est.Address,
             est.Whatsapp,
             est.OpenTime.ToString("HH:mm"),
-            est.CloseTime.ToString("HH:mm")
+            est.CloseTime.ToString("HH:mm"),
+            est.DeliveryFee
         );
     }
 }

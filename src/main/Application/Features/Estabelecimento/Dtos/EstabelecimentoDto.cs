@@ -7,5 +7,6 @@ public record EstabelecimentoDto(
     string Address,
     string Whatsapp,
     string OpenTime,
-    string CloseTime
+    string CloseTime,
+    decimal DeliveryFee
 );

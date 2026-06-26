@@ -17,7 +17,8 @@ public record CreateOrderCommand(
     string Address,
     string Source,
     IReadOnlyList<CreateOrderItemRequest> Items,
-    string? Note = null
+    string? Note = null,
+    string? OrderType = null
 ) : IRequest<OrderDto>;
 
 public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
@@ -41,6 +42,11 @@ public class CreateOrderHandler(IApplicationDbContext db)
 {
     public async Task<OrderDto> Handle(CreateOrderCommand cmd, CancellationToken ct)
     {
+        var est = await db.Estabelecimentos.AsNoTracking().FirstOrDefaultAsync(ct);
+        var isDelivery = string.IsNullOrEmpty(cmd.OrderType) ||
+            cmd.OrderType.Equals("entrega", StringComparison.OrdinalIgnoreCase);
+        var deliveryFee = isDelivery ? (est?.DeliveryFee ?? 0) : 0;
+
         var client = await db.Clients.FirstOrDefaultAsync(c => c.Phone == cmd.ClientPhone, ct);
         if (client is not null)
         {
@@ -76,6 +82,8 @@ public class CreateOrderHandler(IApplicationDbContext db)
             ClientPhone = cmd.ClientPhone,
             Address = cmd.Address,
             Source = source,
+            OrderType = cmd.OrderType,
+            DeliveryFee = deliveryFee,
             Note = cmd.Note,
             Items = requestedItems.Select(i => new OrderItem
             {
@@ -86,7 +94,7 @@ public class CreateOrderHandler(IApplicationDbContext db)
             }).ToList()
         };
 
-        order.Total = order.Items.Sum(i => i.Subtotal);
+        order.Total = order.Items.Sum(i => i.Subtotal) + order.DeliveryFee;
 
         foreach (var item in requestedItems)
         {
