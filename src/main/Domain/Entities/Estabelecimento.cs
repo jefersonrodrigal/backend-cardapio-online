@@ -12,5 +12,9 @@ public class Estabelecimento
     public TimeOnly CloseTime { get; set; }
     public decimal DeliveryFee { get; set; }
     public bool SendOrderTrackingViaWhatsApp { get; set; }
+    public string? InstagramUrl { get; set; }
+    public string? FacebookUrl { get; set; }
+    public string? TikTokUrl { get; set; }
+    public string? TwitterUrl { get; set; }
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

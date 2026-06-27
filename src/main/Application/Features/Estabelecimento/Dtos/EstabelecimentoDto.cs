@@ -9,5 +9,9 @@ public record EstabelecimentoDto(
     string OpenTime,
     string CloseTime,
     decimal DeliveryFee,
-    bool SendOrderTrackingViaWhatsApp
+    bool SendOrderTrackingViaWhatsApp,
+    string? InstagramUrl,
+    string? FacebookUrl,
+    string? TikTokUrl,
+    string? TwitterUrl
 );

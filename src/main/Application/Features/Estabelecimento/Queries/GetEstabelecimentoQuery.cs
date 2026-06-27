@@ -34,7 +34,11 @@ public class GetEstabelecimentoHandler(IApplicationDbContext db)
             est.OpenTime.ToString("HH:mm"),
             est.CloseTime.ToString("HH:mm"),
             est.DeliveryFee,
-            est.SendOrderTrackingViaWhatsApp
+            est.SendOrderTrackingViaWhatsApp,
+            est.InstagramUrl,
+            est.FacebookUrl,
+            est.TikTokUrl,
+            est.TwitterUrl
         );
     }
 }

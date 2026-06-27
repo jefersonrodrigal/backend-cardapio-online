@@ -11,7 +11,7 @@ O projeto expoe uma API HTTP para:
 - controlar estoque e historico de movimentacoes
 - cadastrar e autenticar clientes
 - criar e acompanhar pedidos (com taxa de entrega automatica para pedidos do tipo Entrega)
-- configurar dados do estabelecimento, incluindo taxa de entrega
+- configurar dados do estabelecimento, incluindo taxa de entrega e links de redes sociais
 - armazenar configuracoes de integracoes externas
 - fazer upload de imagens servidas pelo proprio backend
 
@@ -319,7 +319,7 @@ A camada de infraestrutura normaliza a connection string:
 - `Category`
   Categoria do cardapio com slug unico gerado automaticamente do nome, nome de exibicao e ordem de apresentacao. Categorias sao usadas para organizar os produtos no cardapio publico e no painel administrativo.
 - `Estabelecimento`
-  Dados publicos do restaurante/loja: logo, categoria, endereco, WhatsApp, horarios, taxa de entrega (`DeliveryFee`) e flag `SendOrderTrackingViaWhatsApp` para disparo automatico de atualizacoes de status via WhatsApp.
+  Dados publicos do restaurante/loja: logo, categoria, endereco, WhatsApp, horarios, taxa de entrega (`DeliveryFee`), flag `SendOrderTrackingViaWhatsApp` para disparo automatico de atualizacoes de status via WhatsApp e links opcionais de redes sociais (`InstagramUrl`, `FacebookUrl`, `TikTokUrl`, `TwitterUrl`).
 - `Product`
   Produto do cardapio com nome, descricao, preco, slug de categoria, imagem, flag `IsActive`, configuracoes de estoque e suporte a promocao (`IsOnPromotion`, `PromotionalPrice`).
 - `InventoryMovement`
@@ -601,11 +601,18 @@ Payload:
   "whatsapp": "5511999999999",
   "openTime": "18:00",
   "closeTime": "23:59",
-  "deliveryFee": 5.00
+  "deliveryFee": 5.00,
+  "sendOrderTrackingViaWhatsApp": false,
+  "instagramUrl": "https://instagram.com/pizzariaexemplo",
+  "facebookUrl": "https://facebook.com/pizzariaexemplo",
+  "tikTokUrl": null,
+  "twitterUrl": null
 }
 ```
 
 O campo `deliveryFee` e obrigatorio no payload. Use `0` para nao cobrar taxa. Valores negativos sao normalizados para `0`.
+
+Os campos de redes sociais (`instagramUrl`, `facebookUrl`, `tikTokUrl`, `twitterUrl`) sao opcionais. Strings vazias sao normalizadas para `null` no backend. Os links sao retornados na resposta do `GET /api/Estabelecimento` e exibidos como icones clicaveis no cardapio publico.
 
 ### Integrations
 
@@ -723,11 +730,12 @@ Isso faz com que queries SQL aparecam no log local durante desenvolvimento.
 | `20260626000651_AddDeliveryFee` | Campo `DeliveryFee` em `Estabelecimentos` e campos `DeliveryFee` + `OrderType` em `Orders` |
 | `20260626162000_AddOrderTrackingWhatsAppSetting` | Flag `SendOrderTrackingViaWhatsApp` no Estabelecimento |
 | `20260627000001_AddProductPromotion` | Campos `IsOnPromotion` e `PromotionalPrice` em `Products` |
+| `20260627212017_AddSocialMediaLinks` | Campos opcionais `InstagramUrl`, `FacebookUrl`, `TikTokUrl` e `TwitterUrl` em `Estabelecimentos` |
 
 ## Pontos de atencao
 
 - `appsettings.json` deixa `AdminAuth:PasswordHash` e `AdminAuth:JwtSecret` vazios por padrao, entao a API depende de User Secrets ou configuracao equivalente
-- o CORS esta restrito a `http://localhost:4200`; para producao, atualizar `Program.cs`
+- as origens permitidas pelo CORS sao lidas de `Cors:AllowedOrigins` no `appsettings.json` (padrao: `http://localhost:4200`); para producao, atualizar esse valor ou injetar via variavel de ambiente `Cors__AllowedOrigins__0`
 - como as migrations sao aplicadas automaticamente no startup, a conexao com o banco precisa estar correta antes de subir a API
 - o campo `category` nos produtos armazena slugs em minusculas; slugs fora da tabela de categorias ficam visiveis apenas nos filtros, mas nao aparecem no cardapio publico
 

@@ -15,7 +15,11 @@ public record UpsertEstabelecimentoCommand(
     string OpenTime,
     string CloseTime,
     decimal DeliveryFee,
-    bool SendOrderTrackingViaWhatsApp
+    bool SendOrderTrackingViaWhatsApp,
+    string? InstagramUrl,
+    string? FacebookUrl,
+    string? TikTokUrl,
+    string? TwitterUrl
 ) : IRequest<EstabelecimentoDto>;
 
 public class UpsertEstabelecimentoValidator : AbstractValidator<UpsertEstabelecimentoCommand>
@@ -51,6 +55,10 @@ public class UpsertEstabelecimentoHandler(IApplicationDbContext db)
         est.CloseTime = TimeOnly.Parse(cmd.CloseTime);
         est.DeliveryFee = cmd.DeliveryFee >= 0 ? cmd.DeliveryFee : 0;
         est.SendOrderTrackingViaWhatsApp = cmd.SendOrderTrackingViaWhatsApp;
+        est.InstagramUrl = string.IsNullOrWhiteSpace(cmd.InstagramUrl) ? null : cmd.InstagramUrl;
+        est.FacebookUrl = string.IsNullOrWhiteSpace(cmd.FacebookUrl) ? null : cmd.FacebookUrl;
+        est.TikTokUrl = string.IsNullOrWhiteSpace(cmd.TikTokUrl) ? null : cmd.TikTokUrl;
+        est.TwitterUrl = string.IsNullOrWhiteSpace(cmd.TwitterUrl) ? null : cmd.TwitterUrl;
         est.UpdatedAt = DateTimeOffset.UtcNow;
 
         await db.SaveChangesAsync(ct);
@@ -64,7 +72,11 @@ public class UpsertEstabelecimentoHandler(IApplicationDbContext db)
             est.OpenTime.ToString("HH:mm"),
             est.CloseTime.ToString("HH:mm"),
             est.DeliveryFee,
-            est.SendOrderTrackingViaWhatsApp
+            est.SendOrderTrackingViaWhatsApp,
+            est.InstagramUrl,
+            est.FacebookUrl,
+            est.TikTokUrl,
+            est.TwitterUrl
         );
     }
 }

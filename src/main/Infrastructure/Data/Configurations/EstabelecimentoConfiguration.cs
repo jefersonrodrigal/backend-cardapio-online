@@ -16,6 +16,10 @@ public class EstabelecimentoConfiguration : IEntityTypeConfiguration<Estabelecim
         builder.Property(e => e.Whatsapp).HasMaxLength(20);
         builder.Property(e => e.DeliveryFee).HasColumnType("decimal(18,2)");
         builder.Property(e => e.SendOrderTrackingViaWhatsApp).HasDefaultValue(false);
+        builder.Property(e => e.InstagramUrl).HasMaxLength(500);
+        builder.Property(e => e.FacebookUrl).HasMaxLength(500);
+        builder.Property(e => e.TikTokUrl).HasMaxLength(500);
+        builder.Property(e => e.TwitterUrl).HasMaxLength(500);
         builder.Property(e => e.UpdatedAt).HasColumnType("datetimeoffset");
     }
 }
