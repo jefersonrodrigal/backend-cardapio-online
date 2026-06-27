@@ -14,7 +14,9 @@ public record ProductDto(
     int StockQuantity,
     int LowStockThreshold,
     bool IsAvailable,
-    string StockStatus
+    string StockStatus,
+    bool IsOnPromotion,
+    decimal? PromotionalPrice
 )
 {
     public static ProductDto FromProduct(Product product) =>
@@ -29,5 +31,7 @@ public record ProductDto(
             product.StockQuantity,
             product.LowStockThreshold,
             ProductStockStatus.IsAvailable(product),
-            ProductStockStatus.GetStatus(product));
+            ProductStockStatus.GetStatus(product),
+            product.IsOnPromotion,
+            product.PromotionalPrice);
 }

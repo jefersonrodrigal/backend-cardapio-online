@@ -34,7 +34,9 @@ public class ProductsController(ISender sender) : ControllerBase
             req.ImageUrl,
             req.TrackInventory,
             req.StockQuantity,
-            req.LowStockThreshold), ct));
+            req.LowStockThreshold,
+            req.IsOnPromotion,
+            req.PromotionalPrice), ct));
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
@@ -52,4 +54,6 @@ public record UpdateProductRequest(
     string ImageUrl,
     bool TrackInventory = false,
     int StockQuantity = 0,
-    int LowStockThreshold = 0);
+    int LowStockThreshold = 0,
+    bool IsOnPromotion = false,
+    decimal? PromotionalPrice = null);

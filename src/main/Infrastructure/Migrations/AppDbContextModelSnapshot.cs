@@ -462,6 +462,10 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsOnPromotion")
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int>("LowStockThreshold")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -473,6 +477,9 @@ namespace Infrastructure.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("PromotionalPrice")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<byte[]>("RowVersion")

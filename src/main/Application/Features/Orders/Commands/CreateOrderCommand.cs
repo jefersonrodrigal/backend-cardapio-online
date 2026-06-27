@@ -94,7 +94,9 @@ public class CreateOrderHandler(
                 ProductId = productsById[i.ProductId].Id,
                 ProductName = productsById[i.ProductId].Name,
                 Quantity = i.Quantity,
-                UnitPrice = productsById[i.ProductId].Price
+                UnitPrice = productsById[i.ProductId].IsOnPromotion && productsById[i.ProductId].PromotionalPrice.HasValue
+                    ? productsById[i.ProductId].PromotionalPrice!.Value
+                    : productsById[i.ProductId].Price
             }).ToList()
         };
 

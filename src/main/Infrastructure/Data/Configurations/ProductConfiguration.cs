@@ -17,6 +17,8 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.TrackInventory).HasDefaultValue(false);
         builder.Property(p => p.StockQuantity).HasDefaultValue(0);
         builder.Property(p => p.LowStockThreshold).HasDefaultValue(0);
+        builder.Property(p => p.IsOnPromotion).HasDefaultValue(false);
+        builder.Property(p => p.PromotionalPrice).HasColumnType("decimal(18,2)");
         builder.Property(p => p.RowVersion).IsRowVersion();
         builder.HasIndex(p => p.IsActive);
         builder.HasIndex(p => p.TrackInventory);

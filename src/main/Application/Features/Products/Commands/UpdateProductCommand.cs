@@ -17,7 +17,9 @@ public record UpdateProductCommand(
     string ImageUrl,
     bool TrackInventory = false,
     int StockQuantity = 0,
-    int LowStockThreshold = 0
+    int LowStockThreshold = 0,
+    bool IsOnPromotion = false,
+    decimal? PromotionalPrice = null
 ) : IRequest<ProductDto>;
 
 public class UpdateProductValidator : AbstractValidator<UpdateProductCommand>
@@ -29,6 +31,13 @@ public class UpdateProductValidator : AbstractValidator<UpdateProductCommand>
         RuleFor(x => x.Category).NotEmpty().MaximumLength(50);
         RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
         RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(0);
+        When(x => x.IsOnPromotion, () =>
+        {
+            RuleFor(x => x.PromotionalPrice)
+                .NotNull()
+                .GreaterThan(0)
+                .LessThan(x => x.Price);
+        });
     }
 }
 
@@ -50,6 +59,8 @@ public class UpdateProductHandler(IApplicationDbContext db)
         product.TrackInventory = cmd.TrackInventory;
         product.StockQuantity = cmd.StockQuantity;
         product.LowStockThreshold = cmd.LowStockThreshold;
+        product.IsOnPromotion = cmd.IsOnPromotion;
+        product.PromotionalPrice = cmd.IsOnPromotion ? cmd.PromotionalPrice : null;
 
         if (product.TrackInventory && previousStockQuantity != product.StockQuantity)
         {

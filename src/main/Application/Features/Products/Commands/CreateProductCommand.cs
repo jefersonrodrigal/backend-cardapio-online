@@ -15,7 +15,9 @@ public record CreateProductCommand(
     string ImageUrl,
     bool TrackInventory = false,
     int StockQuantity = 0,
-    int LowStockThreshold = 0
+    int LowStockThreshold = 0,
+    bool IsOnPromotion = false,
+    decimal? PromotionalPrice = null
 ) : IRequest<ProductDto>;
 
 public class CreateProductValidator : AbstractValidator<CreateProductCommand>
@@ -27,6 +29,13 @@ public class CreateProductValidator : AbstractValidator<CreateProductCommand>
         RuleFor(x => x.Category).NotEmpty().MaximumLength(50);
         RuleFor(x => x.StockQuantity).GreaterThanOrEqualTo(0);
         RuleFor(x => x.LowStockThreshold).GreaterThanOrEqualTo(0);
+        When(x => x.IsOnPromotion, () =>
+        {
+            RuleFor(x => x.PromotionalPrice)
+                .NotNull()
+                .GreaterThan(0)
+                .LessThan(x => x.Price);
+        });
     }
 }
 
@@ -44,7 +53,9 @@ public class CreateProductHandler(IApplicationDbContext db)
             ImageUrl = cmd.ImageUrl,
             TrackInventory = cmd.TrackInventory,
             StockQuantity = cmd.StockQuantity,
-            LowStockThreshold = cmd.LowStockThreshold
+            LowStockThreshold = cmd.LowStockThreshold,
+            IsOnPromotion = cmd.IsOnPromotion,
+            PromotionalPrice = cmd.IsOnPromotion ? cmd.PromotionalPrice : null
         };
 
         db.Products.Add(product);

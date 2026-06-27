@@ -319,9 +319,9 @@ A camada de infraestrutura normaliza a connection string:
 - `Category`
   Categoria do cardapio com slug unico gerado automaticamente do nome, nome de exibicao e ordem de apresentacao. Categorias sao usadas para organizar os produtos no cardapio publico e no painel administrativo.
 - `Estabelecimento`
-  Dados publicos do restaurante/loja: logo, categoria, endereco, WhatsApp, horarios e taxa de entrega (`DeliveryFee`).
+  Dados publicos do restaurante/loja: logo, categoria, endereco, WhatsApp, horarios, taxa de entrega (`DeliveryFee`) e flag `SendOrderTrackingViaWhatsApp` para disparo automatico de atualizacoes de status via WhatsApp.
 - `Product`
-  Produto do cardapio com nome, descricao, preco, slug de categoria, imagem, flag `IsActive` e configuracoes de estoque.
+  Produto do cardapio com nome, descricao, preco, slug de categoria, imagem, flag `IsActive`, configuracoes de estoque e suporte a promocao (`IsOnPromotion`, `PromotionalPrice`).
 - `InventoryMovement`
   Historico auditavel de entradas, vendas, cancelamentos, ajustes e perdas de estoque.
 - `Client`
@@ -329,7 +329,7 @@ A camada de infraestrutura normaliza a connection string:
 - `Order`
   Pedido com numero unico, cliente vinculado opcionalmente, endereco, origem, tipo (`OrderType`), taxa de entrega (`DeliveryFee`), status, total e itens.
 - `OrderItem`
-  Snapshot dos itens do pedido, incluindo produto vinculado, nome do produto, quantidade e preco unitario.
+  Snapshot dos itens do pedido, incluindo produto vinculado, nome do produto, quantidade e preco unitario. O preco unitario reflete o preco efetivo no momento da compra: preco promocional quando o produto esta em promocao, preco normal caso contrario.
 - `Integration`
   Configuracoes de integracoes externas em uma estrutura unificada.
 
@@ -463,11 +463,21 @@ Payload de criacao/atualizacao:
   "description": "Pao, carne e queijo",
   "price": 29.9,
   "category": "hamburguer",
-  "imageUrl": "http://localhost:5115/uploads/20260620/img.png"
+  "imageUrl": "http://localhost:5115/uploads/20260620/img.png",
+  "trackInventory": false,
+  "stockQuantity": 0,
+  "lowStockThreshold": 0,
+  "isOnPromotion": true,
+  "promotionalPrice": 24.9
 }
 ```
 
 O campo `category` recebe o slug da categoria (minusculas). Valores sao normalizados para minusculas antes da persistencia.
+
+Os campos de promocao seguem estas regras:
+- `isOnPromotion: false` ou omitido: produto sem promocao; `promotionalPrice` e ignorado e salvo como `null`
+- `isOnPromotion: true`: `promotionalPrice` e obrigatorio, deve ser maior que zero e menor que `price`
+- quando o produto esta em promocao, o pedido grava o `promotionalPrice` como `UnitPrice` no `OrderItem`
 
 ### Clients
 
@@ -636,10 +646,12 @@ Payloads esperados:
 - exclusao de produto e logica, nao fisica
 - clientes precisam de email unico e telefone unico
 - senha de admin e senha de cliente sao armazenadas com PBKDF2 SHA-256
-- pedidos usam snapshot do nome e preco do produto no momento da compra
+- pedidos usam snapshot do nome e preco efetivo do produto no momento da compra
+- o preco efetivo e o `PromotionalPrice` quando `IsOnPromotion = true`, ou o `Price` normal caso contrario
+- `PromotionalPrice` so e aceito quando `IsOnPromotion = true` e deve ser maior que zero e menor que `Price`; quando `IsOnPromotion` e falso, `PromotionalPrice` e zerado no backend independentemente do valor enviado
 - a taxa de entrega aplicada ao pedido e um snapshot do valor configurado no estabelecimento no momento da criacao; alteracoes futuras na taxa nao afetam pedidos ja criados
 - a taxa de entrega incide apenas sobre pedidos do tipo `Entrega` ou sem `orderType`; `Retirada` e `ConsumoLocal` tem `DeliveryFee = 0`
-- o `Total` do pedido ja inclui a taxa de entrega: `Total = soma(itens) + DeliveryFee`
+- o `Total` do pedido ja inclui a taxa de entrega: `Total = soma(itens com preco efetivo) + DeliveryFee`
 - listagem de clientes conta apenas pedidos nao cancelados em `ordersCount`
 - `totalSpent` do cliente soma apenas pedidos `Entregue` (incluindo a taxa de entrega, pois o `Total` ja a contempla)
 - a configuracao de estabelecimento e tratada como registro unico
@@ -708,7 +720,9 @@ Isso faz com que queries SQL aparecam no log local durante desenvolvimento.
 | `20260620144545_AlignEstabelecimentoUpdatedAtWithDatabase` | Ajuste de `UpdatedAt` gerado pelo banco |
 | `20260623132455_AddInventoryControl` | Controle de estoque e movimentacoes |
 | `20260624000000_AddCategories` | Tabela `Categories`, seed das 6 categorias iniciais e normalizacao dos slugs em `Products` |
-| `AddDeliveryFee` | Campo `DeliveryFee` em `Estabelecimentos` e campos `DeliveryFee` + `OrderType` em `Orders` |
+| `20260626000651_AddDeliveryFee` | Campo `DeliveryFee` em `Estabelecimentos` e campos `DeliveryFee` + `OrderType` em `Orders` |
+| `20260626162000_AddOrderTrackingWhatsAppSetting` | Flag `SendOrderTrackingViaWhatsApp` no Estabelecimento |
+| `20260627000001_AddProductPromotion` | Campos `IsOnPromotion` e `PromotionalPrice` em `Products` |
 
 ## Pontos de atencao
 

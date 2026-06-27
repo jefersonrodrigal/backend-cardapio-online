@@ -8,6 +8,8 @@ public class Product
     public decimal Price { get; set; }
     public string Category { get; set; } = string.Empty;
     public string ImageUrl { get; set; } = string.Empty;
+    public bool IsOnPromotion { get; set; }
+    public decimal? PromotionalPrice { get; set; }
     public bool IsActive { get; set; } = true;
     public bool TrackInventory { get; set; }
     public int StockQuantity { get; set; }
