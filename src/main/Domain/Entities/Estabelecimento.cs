@@ -12,6 +12,8 @@ public class Estabelecimento
     public TimeOnly CloseTime { get; set; }
     public decimal DeliveryFee { get; set; }
     public bool SendOrderTrackingViaWhatsApp { get; set; }
+    public int PreparationTimeMinutes { get; set; } = 30;
+    public int DeliverySafetyMarginMinutes { get; set; } = 10;
     public string? InstagramUrl { get; set; }
     public string? FacebookUrl { get; set; }
     public string? TikTokUrl { get; set; }

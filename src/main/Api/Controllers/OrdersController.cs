@@ -14,10 +14,16 @@ public class OrdersController(ISender sender) : ControllerBase
 {
     [Authorize]
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 5, [FromQuery] string? date = null, CancellationToken ct = default)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 5,
+        [FromQuery] string? date = null,
+        [FromQuery] string? search = null,
+        [FromQuery] bool activeOnly = false,
+        CancellationToken ct = default)
     {
         DateOnly? parsedDate = DateOnly.TryParse(date, out var d) ? d : null;
-        return Ok(await sender.Send(new GetOrdersQuery(page, pageSize, parsedDate), ct));
+        return Ok(await sender.Send(new GetOrdersQuery(page, pageSize, parsedDate, search, activeOnly), ct));
     }
 
     [Authorize(AuthenticationSchemes = ClientAuthOptions.AuthenticationScheme)]
@@ -38,6 +44,16 @@ public class OrdersController(ISender sender) : ControllerBase
         Ok(await sender.Send(new GetOrderTrackingQuery(id), ct));
 
     [AllowAnonymous]
+    [HttpGet("estimate")]
+    public async Task<IActionResult> GetDeliveryEstimate([FromQuery] string address, [FromQuery] string? orderType, CancellationToken ct) =>
+        Ok(await sender.Send(new GetDeliveryEstimateQuery(address, orderType), ct));
+
+    [AllowAnonymous]
+    [HttpPut("track/{id:guid}/delivered")]
+    public async Task<IActionResult> ConfirmDeliveredByClient(Guid id, CancellationToken ct) =>
+        Ok(await sender.Send(new ConfirmOrderDeliveredByClientCommand(id), ct));
+
+    [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateOrderCommand cmd, CancellationToken ct)
     {
@@ -49,6 +65,11 @@ public class OrdersController(ISender sender) : ControllerBase
     [HttpPut("{id:guid}/advance")]
     public async Task<IActionResult> Advance(Guid id, CancellationToken ct) =>
         Ok(await sender.Send(new AdvanceOrderStatusCommand(id), ct));
+
+    [Authorize]
+    [HttpPut("{id:guid}/delay")]
+    public async Task<IActionResult> MarkDelayed(Guid id, CancellationToken ct) =>
+        Ok(await sender.Send(new MarkOrderDelayedCommand(id), ct));
 
     [Authorize]
     [HttpPut("{id:guid}/cancel")]

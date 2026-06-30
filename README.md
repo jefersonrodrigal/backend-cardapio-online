@@ -10,8 +10,8 @@ O projeto expoe uma API HTTP para:
 - consultar e administrar produtos vinculados a categorias
 - controlar estoque e historico de movimentacoes
 - cadastrar e autenticar clientes
-- criar e acompanhar pedidos (com taxa de entrega automatica para pedidos do tipo Entrega)
-- configurar dados do estabelecimento, incluindo taxa de entrega e links de redes sociais
+- criar e acompanhar pedidos (com taxa de entrega automatica para pedidos do tipo Entrega, prazo estimado e status de atraso)
+- configurar dados do estabelecimento, incluindo taxa de entrega, parametros de estimativa de entrega e links de redes sociais
 - armazenar configuracoes de integracoes externas
 - fazer upload de imagens servidas pelo proprio backend
 
@@ -319,7 +319,7 @@ A camada de infraestrutura normaliza a connection string:
 - `Category`
   Categoria do cardapio com slug unico gerado automaticamente do nome, nome de exibicao e ordem de apresentacao. Categorias sao usadas para organizar os produtos no cardapio publico e no painel administrativo.
 - `Estabelecimento`
-  Dados publicos do restaurante/loja: logo, categoria, endereco, WhatsApp, horarios, taxa de entrega (`DeliveryFee`), flag `SendOrderTrackingViaWhatsApp` para disparo automatico de atualizacoes de status via WhatsApp e links opcionais de redes sociais (`InstagramUrl`, `FacebookUrl`, `TikTokUrl`, `TwitterUrl`).
+  Dados publicos do restaurante/loja: logo, categoria, endereco, WhatsApp, horarios, taxa de entrega (`DeliveryFee`), flag `SendOrderTrackingViaWhatsApp` para disparo automatico de atualizacoes de status via WhatsApp, parametros de prazo (`PreparationTimeMinutes`, `DeliverySafetyMarginMinutes`) e links opcionais de redes sociais (`InstagramUrl`, `FacebookUrl`, `TikTokUrl`, `TwitterUrl`).
 - `Product`
   Produto do cardapio com nome, descricao, preco, slug de categoria, imagem, flag `IsActive`, configuracoes de estoque e suporte a promocao (`IsOnPromotion`, `PromotionalPrice`).
 - `InventoryMovement`
@@ -327,7 +327,7 @@ A camada de infraestrutura normaliza a connection string:
 - `Client`
   Cliente com contato, endereco completo e senha hash.
 - `Order`
-  Pedido com numero unico, cliente vinculado opcionalmente, endereco, origem, tipo (`OrderType`), taxa de entrega (`DeliveryFee`), status, total e itens.
+  Pedido com numero unico, cliente vinculado opcionalmente, endereco, origem, tipo (`OrderType`), taxa de entrega (`DeliveryFee`), status, total, itens e snapshot da estimativa de entrega (`EstimatedPreparationMinutes`, `EstimatedTravelMinutes`, `EstimatedDeliveryMinutes`, `EstimatedReadyAt`, `EstimatedDeliveryDeadlineAt`, `MarkedDelayedAt`).
 - `OrderItem`
   Snapshot dos itens do pedido, incluindo produto vinculado, nome do produto, quantidade e preco unitario. O preco unitario reflete o preco efetivo no momento da compra: preco promocional quando o produto esta em promocao, preco normal caso contrario.
 - `Integration`
@@ -357,6 +357,7 @@ Uma categoria nao pode ser excluida enquanto houver produtos ativos vinculados a
 - `Pendente`
 - `EmPreparo`
 - `EmEntrega`
+- `EmAtraso`
 - `Entregue`
 - `Cancelado`
 
@@ -520,11 +521,17 @@ Payload de autenticacao:
 
 - `POST /api/Orders`
   Publico. Cria pedido.
+- `GET /api/Orders/estimate?address={endereco}&orderType=Entrega`
+  Publico. Calcula uma previa de preparo, deslocamento e prazo final antes de o pedido ser criado. Usa a mesma regra de `IDeliveryEstimateService` aplicada no snapshot gravado no pedido.
 - `GET /api/Orders`
   Protegido. Lista pedidos.
-  Filtros: `page`, `pageSize`, `date` no formato aceito por `DateOnly.TryParse`
+  Filtros: `page`, `pageSize`, `date` no formato aceito por `DateOnly.TryParse`, `search` para nome do cliente e `activeOnly=true` para ocultar pedidos `Entregue` e `Cancelado`.
+- `PUT /api/Orders/track/{id}/delivered`
+  Publico. Permite que o cliente confirme a entrega pelo acompanhamento, apenas se a loja ja tiver marcado o pedido como `EmEntrega`.
 - `PUT /api/Orders/{id}/advance`
   Protegido. Avanca o status do pedido.
+- `PUT /api/Orders/{id}/delay`
+  Protegido. Marca manualmente o pedido como `EmAtraso`.
 - `PUT /api/Orders/{id}/cancel`
   Protegido. Cancela o pedido.
 
@@ -557,8 +564,52 @@ Notas tecnicas:
 - o total e calculado no backend: `soma dos itens + taxa de entrega (quando aplicavel)`
 - a taxa de entrega e lida do registro do `Estabelecimento` no momento da criacao do pedido e gravada como snapshot no campo `DeliveryFee` do pedido
 - pedidos com `orderType` igual a `Entrega` (ou sem `orderType`) recebem a taxa; `Retirada` e `ConsumoLocal` nao recebem taxa
+- no momento da criacao, o pedido recebe uma estimativa persistida de preparo, deslocamento e prazo final
 - produtos com controle de estoque baixam quantidade na criacao do pedido
 - cancelamentos de pedidos ainda nao entregues repõem o estoque dos itens controlados
+
+#### Prazo estimado e status `EmAtraso`
+
+O prazo estimado e calculado no backend no momento da criacao do pedido e fica salvo no proprio `Order`. Isso evita que pedidos antigos mudem de previsao quando o administrador alterar as configuracoes do estabelecimento depois.
+
+Antes da finalizacao, o endpoint `GET /api/Orders/estimate` permite exibir a mesma previsao no carrinho. Essa previa nao cria pedido e pode variar alguns minutos em relacao ao snapshot final se houver demora entre a consulta e a confirmacao.
+
+Os campos de data/hora do pedido (`CreatedAt`, `EstimatedReadyAt`, `EstimatedDeliveryDeadlineAt`, `MarkedDelayedAt` e `DeliveryStartedAt`) sao mantidos internamente em UTC para comparacoes e automacoes. As respostas da API formatadas para cliente/admin convertem esses valores para o horario de Brasilia antes de retornar.
+
+Para pedidos de entrega, o calculo usa:
+
+- `PreparationTimeMinutes`: tempo padrao de preparo configurado no estabelecimento
+- `DeliverySafetyMarginMinutes`: margem operacional adicionada ao deslocamento
+- endereco do estabelecimento e endereco do pedido, usando o CEP quando ele estiver presente
+- velocidade media interna calculada pela plataforma conforme a distancia estimada
+
+Formula aplicada:
+
+```text
+estimatedTravelMinutes = ceil(estimatedDistanceKm / calculatedAverageDeliverySpeedKmH * 60) + DeliverySafetyMarginMinutes
+EstimatedDeliveryMinutes = PreparationTimeMinutes + estimatedTravelMinutes
+EstimatedDeliveryDeadlineAt = CreatedAt + EstimatedDeliveryMinutes
+```
+
+Se o pedido for `Retirada` ou `ConsumoLocal`, o deslocamento fica `0` e o prazo final considera somente o preparo.
+
+Importante: a estimativa atual nao chama API externa de mapas. Ela usa uma heuristica local baseada no CEP de origem/destino; quando nao ha CEP suficiente, usa uma distancia padrao. A implementacao fica isolada em `IDeliveryEstimateService`, permitindo trocar a heuristica por um provedor real de rotas no futuro sem alterar o fluxo de pedidos.
+
+O backend registra `OrderDelayMonitorService`, um `HostedService` que roda a cada 1 minuto. Ele marca automaticamente como `EmAtraso` os pedidos que:
+
+- possuem `EstimatedDeliveryDeadlineAt`
+- ainda nao foram marcados como atrasados (`MarkedDelayedAt == null`)
+- nao estao finalizados (`Entregue` ou `Cancelado`)
+- passaram do prazo estimado
+
+Quando isso acontece, o pedido recebe:
+
+- `Status = EmAtraso`
+- `MarkedDelayedAt = DateTime.UtcNow`
+
+O status tambem pode ser acionado manualmente pelo admin via `PUT /api/Orders/{id}/delay`. Pedidos `EmAtraso` ainda podem ser avancados para `Entregue` pelo fluxo normal de avanco de status.
+
+Quando a loja avanca um pedido para `EmEntrega`, o backend grava `DeliveryStartedAt`. Esse campo libera a confirmacao de entrega pelo cliente no endpoint publico `PUT /api/Orders/track/{id}/delivered`. A confirmacao pelo cliente so e aceita quando `DeliveryStartedAt` existe e o status atual ainda e `EmEntrega` ou `EmAtraso`; caso contrario, a API retorna regra de negocio recusada.
 
 ### Inventory
 
@@ -603,6 +654,8 @@ Payload:
   "closeTime": "23:59",
   "deliveryFee": 5.00,
   "sendOrderTrackingViaWhatsApp": false,
+  "preparationTimeMinutes": 30,
+  "deliverySafetyMarginMinutes": 10,
   "instagramUrl": "https://instagram.com/pizzariaexemplo",
   "facebookUrl": "https://facebook.com/pizzariaexemplo",
   "tikTokUrl": null,
@@ -658,6 +711,9 @@ Payloads esperados:
 - `PromotionalPrice` so e aceito quando `IsOnPromotion = true` e deve ser maior que zero e menor que `Price`; quando `IsOnPromotion` e falso, `PromotionalPrice` e zerado no backend independentemente do valor enviado
 - a taxa de entrega aplicada ao pedido e um snapshot do valor configurado no estabelecimento no momento da criacao; alteracoes futuras na taxa nao afetam pedidos ja criados
 - a taxa de entrega incide apenas sobre pedidos do tipo `Entrega` ou sem `orderType`; `Retirada` e `ConsumoLocal` tem `DeliveryFee = 0`
+- a estimativa de entrega aplicada ao pedido tambem e um snapshot calculado no momento da criacao; alteracoes futuras em preparo ou margem nao recalculam pedidos antigos
+- pedidos nao finalizados sao marcados automaticamente como `EmAtraso` quando passam de `EstimatedDeliveryDeadlineAt`
+- o status `EmAtraso` nao substitui o encerramento do pedido; ele ainda pode ser avancado para `Entregue` ou cancelado conforme o fluxo administrativo
 - o `Total` do pedido ja inclui a taxa de entrega: `Total = soma(itens com preco efetivo) + DeliveryFee`
 - listagem de clientes conta apenas pedidos nao cancelados em `ordersCount`
 - `totalSpent` do cliente soma apenas pedidos `Entregue` (incluindo a taxa de entrega, pois o `Total` ja a contempla)
@@ -731,4 +787,7 @@ Isso faz com que queries SQL aparecam no log local durante desenvolvimento.
 | `20260626162000_AddOrderTrackingWhatsAppSetting` | Flag `SendOrderTrackingViaWhatsApp` no Estabelecimento |
 | `20260627000001_AddProductPromotion` | Campos `IsOnPromotion` e `PromotionalPrice` em `Products` |
 | `20260627212017_AddSocialMediaLinks` | Campos opcionais `InstagramUrl`, `FacebookUrl`, `TikTokUrl` e `TwitterUrl` em `Estabelecimentos` |
+| `20260630120000_AddOrderDeliveryEstimate` | Parametros de estimativa no Estabelecimento e snapshot de prazo/atraso em Orders |
+| `20260630123000_AddOrderDeliveryStartedAt` | Campo `DeliveryStartedAt` em Orders para liberar confirmacao de entrega pelo cliente |
+| `20260630124500_RemoveDeliveryAverageSpeedSetting` | Remove a velocidade media de entrega como configuracao do Estabelecimento |
 

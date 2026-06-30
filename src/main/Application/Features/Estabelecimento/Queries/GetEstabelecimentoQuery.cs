@@ -22,7 +22,9 @@ public class GetEstabelecimentoHandler(IApplicationDbContext db)
                 Whatsapp = string.Empty,
                 OpenTime = new TimeOnly(18, 0),
                 CloseTime = new TimeOnly(22, 0),
-                SendOrderTrackingViaWhatsApp = false
+                SendOrderTrackingViaWhatsApp = false,
+                PreparationTimeMinutes = 30,
+                DeliverySafetyMarginMinutes = 10
             };
 
         return new EstabelecimentoDto(
@@ -35,6 +37,8 @@ public class GetEstabelecimentoHandler(IApplicationDbContext db)
             est.CloseTime.ToString("HH:mm"),
             est.DeliveryFee,
             est.SendOrderTrackingViaWhatsApp,
+            est.PreparationTimeMinutes,
+            est.DeliverySafetyMarginMinutes,
             est.InstagramUrl,
             est.FacebookUrl,
             est.TikTokUrl,

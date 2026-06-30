@@ -1,3 +1,4 @@
+using Application.Common.Time;
 using Domain.Entities;
 
 namespace Application.Features.Orders.Dtos;
@@ -28,6 +29,13 @@ public record OrderDto(
     string Source,
     string? OrderType,
     string? Note,
+    int? EstimatedPreparationMinutes,
+    int? EstimatedTravelMinutes,
+    int? EstimatedDeliveryMinutes,
+    string? EstimatedReadyAt,
+    string? EstimatedDeliveryDeadlineAt,
+    string? MarkedDelayedAt,
+    bool CanClientConfirmDelivery,
     IReadOnlyList<OrderItemDto> Items
 );
 
@@ -43,11 +51,31 @@ public record OrderTrackingDto(
     string Source,
     string? OrderType,
     string? Note,
+    int? EstimatedPreparationMinutes,
+    int? EstimatedTravelMinutes,
+    int? EstimatedDeliveryMinutes,
+    string? EstimatedReadyAt,
+    string? EstimatedDeliveryDeadlineAt,
+    string? MarkedDelayedAt,
+    bool CanClientConfirmDelivery,
     IReadOnlyList<OrderItemDto> Items
+);
+
+public record DeliveryEstimateDto(
+    int EstimatedPreparationMinutes,
+    int EstimatedTravelMinutes,
+    int EstimatedDeliveryMinutes,
+    decimal EstimatedDeliveryDistanceKm,
+    string EstimatedReadyAt,
+    string EstimatedDeliveryDeadlineAt
 );
 
 public static class OrderDtoMapper
 {
+    private static bool CanClientConfirmDelivery(Order order) =>
+        order.DeliveryStartedAt.HasValue &&
+        order.Status is Domain.Enums.OrderStatus.EmEntrega or Domain.Enums.OrderStatus.EmAtraso;
+
     private static OrderItemDto ToItemDto(OrderItem i) =>
         new(
             i.ProductId,
@@ -70,10 +98,17 @@ public static class OrderDtoMapper
             order.DeliveryFee,
             order.Status.ToString(),
             order.Date.ToString("yyyy-MM-dd"),
-            order.CreatedAt.ToString("dd/MM HH:mm"),
+            AppTimeZone.FormatDateTime(order.CreatedAt),
             order.Source.ToString(),
             order.OrderType,
             order.Note,
+            order.EstimatedPreparationMinutes,
+            order.EstimatedTravelMinutes,
+            order.EstimatedDeliveryMinutes,
+            AppTimeZone.FormatDateTime(order.EstimatedReadyAt),
+            AppTimeZone.FormatDateTime(order.EstimatedDeliveryDeadlineAt),
+            AppTimeZone.FormatDateTime(order.MarkedDelayedAt),
+            CanClientConfirmDelivery(order),
             order.Items.Select(ToItemDto).ToList()
         );
 
@@ -86,10 +121,17 @@ public static class OrderDtoMapper
             order.DeliveryFee,
             order.Status.ToString(),
             order.Date.ToString("yyyy-MM-dd"),
-            order.CreatedAt.ToString("dd/MM HH:mm"),
+            AppTimeZone.FormatDateTime(order.CreatedAt),
             order.Source.ToString(),
             order.OrderType,
             order.Note,
+            order.EstimatedPreparationMinutes,
+            order.EstimatedTravelMinutes,
+            order.EstimatedDeliveryMinutes,
+            AppTimeZone.FormatDateTime(order.EstimatedReadyAt),
+            AppTimeZone.FormatDateTime(order.EstimatedDeliveryDeadlineAt),
+            AppTimeZone.FormatDateTime(order.MarkedDelayedAt),
+            CanClientConfirmDelivery(order),
             order.Items.Select(ToItemDto).ToList()
         );
 }

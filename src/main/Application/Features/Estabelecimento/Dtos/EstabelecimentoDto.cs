@@ -10,6 +10,8 @@ public record EstabelecimentoDto(
     string CloseTime,
     decimal DeliveryFee,
     bool SendOrderTrackingViaWhatsApp,
+    int PreparationTimeMinutes,
+    int DeliverySafetyMarginMinutes,
     string? InstagramUrl,
     string? FacebookUrl,
     string? TikTokUrl,

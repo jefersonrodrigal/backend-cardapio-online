@@ -1,4 +1,5 @@
 using Application.Common.Interfaces;
+using Application.Common.Time;
 using Application.Features.Orders.Dtos;
 using Domain.Entities;
 using Domain.Enums;
@@ -52,7 +53,8 @@ public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
 
 public class CreateOrderHandler(
     IApplicationDbContext db,
-    IOrderTrackingNotificationSender orderTrackingNotificationSender)
+    IOrderTrackingNotificationSender orderTrackingNotificationSender,
+    IDeliveryEstimateService deliveryEstimateService)
     : IRequestHandler<CreateOrderCommand, OrderDto>
 {
     public async Task<OrderDto> Handle(CreateOrderCommand cmd, CancellationToken ct)
@@ -68,7 +70,9 @@ public class CreateOrderHandler(
             client.Name = cmd.ClientName;
         }
 
-        var number = GenerateOrderNumber();
+        var createdAtUtc = DateTime.UtcNow;
+        var number = GenerateOrderNumber(createdAtUtc);
+        var deliveryEstimate = deliveryEstimateService.Calculate(est, cmd.Address, cmd.OrderType, createdAtUtc);
 
         var source = Enum.TryParse<OrderSource>(cmd.Source, true, out var src) ? src : OrderSource.Site;
         var requestedItems = cmd.Items
@@ -146,10 +150,18 @@ public class CreateOrderHandler(
             ClientName = cmd.ClientName,
             ClientPhone = cmd.ClientPhone,
             Address = cmd.Address,
+            Date = AppTimeZone.ToBusinessDate(createdAtUtc),
+            CreatedAt = createdAtUtc,
             Source = source,
             OrderType = cmd.OrderType,
             DeliveryFee = deliveryFee,
             Note = cmd.Note,
+            EstimatedPreparationMinutes = deliveryEstimate.PreparationMinutes,
+            EstimatedTravelMinutes = deliveryEstimate.TravelMinutes,
+            EstimatedDeliveryMinutes = deliveryEstimate.TotalMinutes,
+            EstimatedDeliveryDistanceKm = deliveryEstimate.DistanceKm,
+            EstimatedReadyAt = deliveryEstimate.EstimatedReadyAt,
+            EstimatedDeliveryDeadlineAt = deliveryEstimate.EstimatedDeliveryDeadlineAt,
             Items = requestedItems.Select(i =>
             {
                 var additionals = (i.Additionals ?? [])
@@ -223,11 +235,12 @@ public class CreateOrderHandler(
         return order.ToDto();
     }
 
-    private static string GenerateOrderNumber()
+    private static string GenerateOrderNumber(DateTime createdAtUtc)
     {
         Span<byte> randomBytes = stackalloc byte[4];
         RandomNumberGenerator.Fill(randomBytes);
         var randomSuffix = Convert.ToHexString(randomBytes);
-        return $"P{DateTime.UtcNow:yyMMddHHmm}{randomSuffix}";
+        var localCreatedAt = AppTimeZone.ToBusinessTime(createdAtUtc);
+        return $"P{localCreatedAt:yyMMddHHmm}{randomSuffix}";
     }
 }

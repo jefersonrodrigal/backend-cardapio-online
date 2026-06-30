@@ -16,6 +16,8 @@ public record UpsertEstabelecimentoCommand(
     string CloseTime,
     decimal DeliveryFee,
     bool SendOrderTrackingViaWhatsApp,
+    int PreparationTimeMinutes,
+    int DeliverySafetyMarginMinutes,
     string? InstagramUrl,
     string? FacebookUrl,
     string? TikTokUrl,
@@ -30,6 +32,8 @@ public class UpsertEstabelecimentoValidator : AbstractValidator<UpsertEstabeleci
         RuleFor(x => x.Whatsapp).NotEmpty().MaximumLength(20);
         RuleFor(x => x.OpenTime).Matches(@"^\d{2}:\d{2}$");
         RuleFor(x => x.CloseTime).Matches(@"^\d{2}:\d{2}$");
+        RuleFor(x => x.PreparationTimeMinutes).InclusiveBetween(5, 240);
+        RuleFor(x => x.DeliverySafetyMarginMinutes).InclusiveBetween(0, 90);
     }
 }
 
@@ -55,6 +59,8 @@ public class UpsertEstabelecimentoHandler(IApplicationDbContext db)
         est.CloseTime = TimeOnly.Parse(cmd.CloseTime);
         est.DeliveryFee = cmd.DeliveryFee >= 0 ? cmd.DeliveryFee : 0;
         est.SendOrderTrackingViaWhatsApp = cmd.SendOrderTrackingViaWhatsApp;
+        est.PreparationTimeMinutes = cmd.PreparationTimeMinutes;
+        est.DeliverySafetyMarginMinutes = cmd.DeliverySafetyMarginMinutes;
         est.InstagramUrl = string.IsNullOrWhiteSpace(cmd.InstagramUrl) ? null : cmd.InstagramUrl;
         est.FacebookUrl = string.IsNullOrWhiteSpace(cmd.FacebookUrl) ? null : cmd.FacebookUrl;
         est.TikTokUrl = string.IsNullOrWhiteSpace(cmd.TikTokUrl) ? null : cmd.TikTokUrl;
@@ -73,6 +79,8 @@ public class UpsertEstabelecimentoHandler(IApplicationDbContext db)
             est.CloseTime.ToString("HH:mm"),
             est.DeliveryFee,
             est.SendOrderTrackingViaWhatsApp,
+            est.PreparationTimeMinutes,
+            est.DeliverySafetyMarginMinutes,
             est.InstagramUrl,
             est.FacebookUrl,
             est.TikTokUrl,

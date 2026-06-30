@@ -1,6 +1,7 @@
 using Application.Common.Interfaces;
 using Infrastructure.Data;
 using Infrastructure.Notifications;
+using Infrastructure.Orders;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -23,6 +24,7 @@ public static class DependencyInjection
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddHttpClient<IOrderTrackingNotificationSender, WhatsAppOrderTrackingNotificationSender>();
+        services.AddHostedService<OrderDelayMonitorService>();
 
         return services;
     }

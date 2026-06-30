@@ -18,10 +18,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.Source).HasConversion<string>().HasMaxLength(20);
         builder.Property(o => o.OrderType).HasMaxLength(20);
         builder.Property(o => o.DeliveryFee).HasColumnType("decimal(18,2)");
+        builder.Property(o => o.EstimatedDeliveryDistanceKm).HasColumnType("decimal(8,2)");
         builder.Property(o => o.Note).HasMaxLength(500);
         builder.HasIndex(o => o.Date);
         builder.HasIndex(o => o.Number).IsUnique();
         builder.HasIndex(o => o.Status);
+        builder.HasIndex(o => o.EstimatedDeliveryDeadlineAt);
         builder.HasMany(o => o.Items).WithOne(i => i.Order).HasForeignKey(i => i.OrderId).OnDelete(DeleteBehavior.Cascade);
     }
 }

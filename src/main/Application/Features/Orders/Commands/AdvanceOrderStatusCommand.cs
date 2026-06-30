@@ -16,11 +16,13 @@ public class AdvanceOrderStatusHandler(IApplicationDbContext db)
         [OrderStatus.Pendente]  = OrderStatus.EmPreparo,
         [OrderStatus.EmPreparo] = OrderStatus.EmEntrega,
         [OrderStatus.EmEntrega] = OrderStatus.Entregue,
+        [OrderStatus.EmAtraso]  = OrderStatus.Entregue,
     };
 
     public async Task<OrderDto> Handle(AdvanceOrderStatusCommand cmd, CancellationToken ct)
     {
-        var order = await db.Orders.Include(o => o.Items)
+        var order = await db.Orders
+            .Include(o => o.Items).ThenInclude(i => i.Additionals)
             .FirstOrDefaultAsync(o => o.Id == cmd.Id, ct)
             ?? throw new KeyNotFoundException($"Order {cmd.Id} not found.");
 
@@ -28,6 +30,11 @@ public class AdvanceOrderStatusHandler(IApplicationDbContext db)
             throw new InvalidOperationException($"Cannot advance order with status {order.Status}.");
 
         order.Status = next;
+        if (next == OrderStatus.EmEntrega)
+        {
+            order.DeliveryStartedAt ??= DateTime.UtcNow;
+        }
+
         await db.SaveChangesAsync(ct);
 
         return order.ToDto();

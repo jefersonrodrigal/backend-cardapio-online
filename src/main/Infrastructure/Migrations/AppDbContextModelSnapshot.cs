@@ -232,6 +232,11 @@ namespace Infrastructure.Migrations
                     b.Property<decimal>("DeliveryFee")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("DeliverySafetyMarginMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(10);
+
                     b.Property<string>("FacebookUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -252,6 +257,11 @@ namespace Infrastructure.Migrations
 
                     b.Property<TimeOnly>("OpenTime")
                         .HasColumnType("time");
+
+                    b.Property<int>("PreparationTimeMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(30);
 
                     b.Property<bool>("SendOrderTrackingViaWhatsApp")
                         .ValueGeneratedOnAdd()
@@ -456,6 +466,30 @@ namespace Infrastructure.Migrations
                     b.Property<decimal>("DeliveryFee")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<DateTime?>("DeliveryStartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("EstimatedDeliveryDistanceKm")
+                        .HasColumnType("decimal(8,2)");
+
+                    b.Property<DateTime?>("EstimatedDeliveryDeadlineAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EstimatedDeliveryMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EstimatedPreparationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EstimatedReadyAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EstimatedTravelMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("MarkedDelayedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Note")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -487,6 +521,8 @@ namespace Infrastructure.Migrations
                     b.HasIndex("ClientId");
 
                     b.HasIndex("Date");
+
+                    b.HasIndex("EstimatedDeliveryDeadlineAt");
 
                     b.HasIndex("Number")
                         .IsUnique();

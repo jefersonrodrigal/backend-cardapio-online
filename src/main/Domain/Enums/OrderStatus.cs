@@ -6,5 +6,6 @@ public enum OrderStatus
     EmPreparo = 1,
     EmEntrega = 2,
     Entregue = 3,
-    Cancelado = 4
+    Cancelado = 4,
+    EmAtraso = 5
 }
