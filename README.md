@@ -732,17 +732,3 @@ Isso faz com que queries SQL aparecam no log local durante desenvolvimento.
 | `20260627000001_AddProductPromotion` | Campos `IsOnPromotion` e `PromotionalPrice` em `Products` |
 | `20260627212017_AddSocialMediaLinks` | Campos opcionais `InstagramUrl`, `FacebookUrl`, `TikTokUrl` e `TwitterUrl` em `Estabelecimentos` |
 
-## Pontos de atencao
-
-- `appsettings.json` deixa `AdminAuth:PasswordHash` e `AdminAuth:JwtSecret` vazios por padrao, entao a API depende de User Secrets ou configuracao equivalente
-- as origens permitidas pelo CORS sao lidas de `Cors:AllowedOrigins` no `appsettings.json` (padrao: `http://localhost:4200`); para producao, atualizar esse valor ou injetar via variavel de ambiente `Cors__AllowedOrigins__0`
-- como as migrations sao aplicadas automaticamente no startup, a conexao com o banco precisa estar correta antes de subir a API
-- o campo `category` nos produtos armazena slugs em minusculas; slugs fora da tabela de categorias ficam visiveis apenas nos filtros, mas nao aparecem no cardapio publico
-
-## Sugestoes de proximos passos
-
-- adicionar testes automatizados para handlers e controllers
-- versionar um `appsettings.Example.json` ou `.env` equivalente para onboarding
-- publicar uma colecao de requests atualizada
-- considerar mascaramento de segredos nas respostas de integracoes
-- restringir CORS para a origem de producao do frontend
