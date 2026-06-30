@@ -24,6 +24,8 @@ public class GetProductsHandler(IApplicationDbContext db)
 
         var total = await query.CountAsync(ct);
         var products = await query
+            .Include(p => p.AdditionalGroups)
+                .ThenInclude(g => g.Items)
             .OrderBy(p => p.CreatedAt)
             .Skip((q.Page - 1) * q.PageSize)
             .Take(q.PageSize)

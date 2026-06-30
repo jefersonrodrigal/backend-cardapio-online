@@ -2,7 +2,17 @@ using Domain.Entities;
 
 namespace Application.Features.Orders.Dtos;
 
-public record OrderItemDto(Guid? ProductId, string ProductName, int Quantity, decimal UnitPrice, decimal Subtotal);
+public record OrderItemAdditionalDto(string GroupName, string Name, decimal Price, int Quantity);
+
+public record OrderItemDto(
+    Guid? ProductId,
+    string ProductName,
+    int Quantity,
+    decimal UnitPrice,
+    decimal AdditionalsPrice,
+    decimal Subtotal,
+    IReadOnlyList<OrderItemAdditionalDto> Additionals
+);
 
 public record OrderDto(
     Guid Id,
@@ -38,6 +48,17 @@ public record OrderTrackingDto(
 
 public static class OrderDtoMapper
 {
+    private static OrderItemDto ToItemDto(OrderItem i) =>
+        new(
+            i.ProductId,
+            i.ProductName,
+            i.Quantity,
+            i.UnitPrice,
+            i.AdditionalsPrice,
+            i.Subtotal,
+            i.Additionals.Select(a => new OrderItemAdditionalDto(a.GroupName, a.Name, a.Price, a.Quantity)).ToList()
+        );
+
     public static OrderDto ToDto(this Order order) =>
         new(
             order.Id,
@@ -53,7 +74,7 @@ public static class OrderDtoMapper
             order.Source.ToString(),
             order.OrderType,
             order.Note,
-            order.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.Quantity, i.UnitPrice, i.Subtotal)).ToList()
+            order.Items.Select(ToItemDto).ToList()
         );
 
     public static OrderTrackingDto ToTrackingDto(this Order order) =>
@@ -69,6 +90,6 @@ public static class OrderDtoMapper
             order.Source.ToString(),
             order.OrderType,
             order.Note,
-            order.Items.Select(i => new OrderItemDto(i.ProductId, i.ProductName, i.Quantity, i.UnitPrice, i.Subtotal)).ToList()
+            order.Items.Select(ToItemDto).ToList()
         );
 }

@@ -18,4 +18,5 @@ public class Product
     public byte[] RowVersion { get; set; } = [];
     public ICollection<OrderItem> OrderItems { get; set; } = [];
     public ICollection<InventoryMovement> InventoryMovements { get; set; } = [];
+    public ICollection<AdditionalGroup> AdditionalGroups { get; set; } = [];
 }

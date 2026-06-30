@@ -11,6 +11,7 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.HasKey(i => i.Id);
         builder.Property(i => i.ProductName).HasMaxLength(200).IsRequired();
         builder.Property(i => i.UnitPrice).HasColumnType("decimal(18,2)");
+        builder.Property(i => i.AdditionalsPrice).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
         builder.Ignore(i => i.Subtotal); // computed
         builder.HasIndex(i => i.ProductId);
         builder.HasOne(i => i.Product)

@@ -1,4 +1,5 @@
 using Application.Common.Inventory;
+using Application.Features.AdditionalGroups.Dtos;
 using Domain.Entities;
 
 namespace Application.Features.Products.Dtos;
@@ -16,7 +17,8 @@ public record ProductDto(
     bool IsAvailable,
     string StockStatus,
     bool IsOnPromotion,
-    decimal? PromotionalPrice
+    decimal? PromotionalPrice,
+    IReadOnlyList<AdditionalGroupDto> AdditionalGroups
 )
 {
     public static ProductDto FromProduct(Product product) =>
@@ -33,5 +35,9 @@ public record ProductDto(
             ProductStockStatus.IsAvailable(product),
             ProductStockStatus.GetStatus(product),
             product.IsOnPromotion,
-            product.PromotionalPrice);
+            product.PromotionalPrice,
+            product.AdditionalGroups
+                .OrderBy(g => g.SortOrder)
+                .Select(AdditionalGroupDto.FromGroup)
+                .ToList());
 }

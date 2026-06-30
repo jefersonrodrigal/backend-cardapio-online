@@ -18,7 +18,7 @@ public class GetClientOrdersHandler(IApplicationDbContext db)
         var pageSize = Math.Clamp(q.PageSize, 1, 50);
         var query = db.Orders
             .AsNoTracking()
-            .Include(o => o.Items)
+            .Include(o => o.Items).ThenInclude(i => i.Additionals)
             .Where(o => o.ClientId == q.ClientId);
 
         var total = await query.CountAsync(ct);

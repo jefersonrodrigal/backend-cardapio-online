@@ -14,7 +14,7 @@ public class GetOrderTrackingHandler(IApplicationDbContext db)
     {
         var order = await db.Orders
             .AsNoTracking()
-            .Include(o => o.Items)
+            .Include(o => o.Items).ThenInclude(i => i.Additionals)
             .FirstOrDefaultAsync(o => o.Id == q.Id, ct)
             ?? throw new KeyNotFoundException("Pedido nao encontrado.");
 

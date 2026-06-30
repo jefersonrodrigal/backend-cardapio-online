@@ -14,7 +14,7 @@ public class GetOrdersHandler(IApplicationDbContext db)
 {
     public async Task<PaginatedResult<OrderDto>> Handle(GetOrdersQuery q, CancellationToken ct)
     {
-        var query = db.Orders.Include(o => o.Items).AsQueryable();
+        var query = db.Orders.Include(o => o.Items).ThenInclude(i => i.Additionals).AsQueryable();
 
         if (q.Date.HasValue)
             query = query.Where(o => o.Date == q.Date.Value);
