@@ -1,104 +1,103 @@
 # Cardapio Online — Backend
 
-Backend da plataforma de cardapio online, construido em ASP.NET Core com arquitetura em camadas, EF Core e autenticacao JWT para as rotas administrativas.
+API RESTful construida em ASP.NET Core com Clean Architecture, CQRS via MediatR, EF Core e autenticacao JWT dupla (admin + cliente).
 
-## Visao geral
+## Indice
 
-O projeto expoe uma API HTTP para:
+- [Stack tecnica](#stack-tecnica)
+- [Arquitetura](#arquitetura)
+- [Como executar](#como-executar)
+- [Configuracao](#configuracao)
+- [Autenticacao](#autenticacao)
+- [Entidades do dominio](#entidades-do-dominio)
+- [Endpoints](#endpoints)
+- [Logica de negocio](#logica-de-negocio)
+- [Tratamento de erros](#tratamento-de-erros)
+- [Migrations](#migrations)
 
-- consultar e administrar categorias do cardapio
-- consultar e administrar produtos vinculados a categorias
-- controlar estoque e historico de movimentacoes
-- cadastrar e autenticar clientes
-- criar e acompanhar pedidos (com taxa de entrega automatica para pedidos do tipo Entrega, prazo estimado e status de atraso)
-- configurar dados do estabelecimento, incluindo taxa de entrega, parametros de estimativa de entrega e links de redes sociais
-- armazenar configuracoes de integracoes externas
-- fazer upload de imagens servidas pelo proprio backend
-
-O sistema separa claramente os fluxos publicos e administrativos:
-
-- publico: categorias, cardapio, criacao de pedidos, cadastro/autenticacao de clientes e leitura do estabelecimento
-- administrativo: login JWT, gestao de categorias, produtos, estoque, clientes, pedidos, uploads, estabelecimento e integracoes
+---
 
 ## Stack tecnica
 
 - .NET `10.0`
 - ASP.NET Core Web API
-- Entity Framework Core `9.0.5`
-- SQL Server
+- Entity Framework Core `9.0.5` + SQL Server
 - MediatR `12.5.0`
 - FluentValidation `11.11.0`
-- JWT Bearer Authentication
+- JWT Bearer Authentication (dois esquemas independentes)
 - OpenAPI nativo do ASP.NET Core
+
+---
 
 ## Arquitetura
 
-O codigo segue um estilo proximo de Clean Architecture / Onion Architecture.
+O projeto segue Clean Architecture / Onion Architecture com quatro camadas:
 
-- `src/main/Api`
-  Camada de exposicao HTTP, configuracao de middleware, autenticacao, CORS e controllers.
-- `src/main/Application`
-  Casos de uso, commands, queries, DTOs, validacoes e pipeline behaviors.
-- `src/main/Domain`
-  Entidades e enums do dominio.
-- `src/main/Infrastructure`
-  Persistencia com EF Core, `DbContext`, configuracao de DI e migrations.
-
-### Fluxo interno
-
-1. O controller recebe a requisicao HTTP.
-2. O controller delega a execucao para MediatR.
-3. O pipeline de validacao roda via FluentValidation.
-4. O handler acessa `IApplicationDbContext`.
-5. O EF Core persiste ou consulta dados no SQL Server.
-6. O resultado volta como DTO serializado em JSON.
-
-## Estrutura do repositorio
-
-```text
-.
-├─ src/
-│  ├─ Backend.slnx
-│  ├─ workload-install.ps1
-│  └─ main/
-│     ├─ Api/
-│     │  ├─ Controllers/
-│     │  │  ├─ AuthController.cs
-│     │  │  ├─ CategoriesController.cs
-│     │  │  ├─ ClientsController.cs
-│     │  │  ├─ EstabelecimentoController.cs
-│     │  │  ├─ IntegrationsController.cs
-│     │  │  ├─ InventoryController.cs
-│     │  │  ├─ OrdersController.cs
-│     │  │  ├─ ProductsController.cs
-│     │  │  └─ UploadsController.cs
-│     │  └─ Middleware/
-│     ├─ Application/
-│     │  └─ Features/
-│     │     ├─ Categories/
-│     │     ├─ Clients/
-│     │     ├─ Estabelecimento/
-│     │     ├─ Integrations/
-│     │     ├─ Inventory/
-│     │     ├─ Orders/
-│     │     └─ Products/
-│     ├─ Domain/
-│     │  ├─ Entities/
-│     │  └─ Enums/
-│     └─ Infrastructure/
-│        ├─ Data/
-│        └─ Migrations/
-├─ .gitignore
-└─ README.md
+```
+src/main/
+├── Api/            # Controllers, middleware, configuracao HTTP, CORS, autenticacao
+├── Application/    # Commands, Queries, DTOs, validacoes (FluentValidation), pipeline behaviors
+├── Domain/         # Entidades e enums (sem dependencias)
+└── Infrastructure/ # EF Core, DbContext, migrations, DI, seeder
 ```
 
-## Requisitos
+### Fluxo de uma requisicao
+
+1. Controller recebe a requisicao HTTP
+2. Controller cria um Command ou Query e envia ao MediatR (`sender.Send(...)`)
+3. `ValidationBehavior` executa FluentValidation antes de qualquer handler
+4. Handler executa a logica e persiste via `IApplicationDbContext`
+5. EF Core persiste ou consulta dados no SQL Server
+6. Resultado retorna como DTO serializado em JSON
+
+### Estrutura de pastas
+
+```
+src/
+├── Backend.slnx
+├── workload-install.ps1
+└── main/
+    ├── Api/
+    │   ├── Controllers/
+    │   │   ├── AuthController.cs
+    │   │   ├── CategoriesController.cs
+    │   │   ├── ClientsController.cs
+    │   │   ├── EstabelecimentoController.cs
+    │   │   ├── IntegrationsController.cs
+    │   │   ├── InventoryController.cs
+    │   │   ├── NeighborhoodDeliveryFeesController.cs
+    │   │   ├── OrdersController.cs
+    │   │   ├── ProductsController.cs
+    │   │   └── UploadsController.cs
+    │   └── Middleware/
+    ├── Application/
+    │   └── Features/
+    │       ├── AdditionalGroups/
+    │       ├── Categories/
+    │       ├── Clients/
+    │       ├── Estabelecimento/
+    │       ├── Integrations/
+    │       ├── Inventory/
+    │       ├── NeighborhoodDeliveryFees/
+    │       ├── Orders/
+    │       └── Products/
+    ├── Domain/
+    │   ├── Entities/
+    │   └── Enums/
+    └── Infrastructure/
+        ├── Data/
+        └── Migrations/
+```
+
+---
+
+## Como executar
+
+### Pre-requisitos
 
 - SDK do .NET `10.0`
-- SQL Server acessivel pela string de conexao configurada
-- PowerShell, se for usar os scripts utilitarios
-
-## Como executar localmente
+- SQL Server acessivel pela connection string configurada
+- PowerShell (para o script de secrets)
 
 ### 1. Restaurar dependencias
 
@@ -108,23 +107,18 @@ dotnet restore src\Backend.slnx
 
 ### 2. Configurar secrets de desenvolvimento
 
-O projeto usa `UserSecretsId` em `src/main/Api/Api.csproj`.
-
-O jeito mais simples e usar o script:
-
 ```powershell
 cd src\main\Api
 .\init-dev-secrets.ps1
 ```
 
-Opcionalmente:
+Com parametros customizados:
 
 ```powershell
 .\init-dev-secrets.ps1 -AdminEmail "admin@cardapioonline.local" -AdminPassword "SuaSenhaForte123!" -JwtSecret "chave-com-pelo-menos-32-caracteres"
 ```
 
-O script grava os seguintes valores em User Secrets:
-
+O script grava via `dotnet user-secrets`:
 - `AdminAuth:Email`
 - `AdminAuth:PasswordHash`
 - `AdminAuth:JwtIssuer`
@@ -132,9 +126,9 @@ O script grava os seguintes valores em User Secrets:
 - `AdminAuth:JwtSecret`
 - `AdminAuth:TokenExpirationMinutes`
 
-### 3. Ajustar a conexao com o banco
+### 3. Ajustar a connection string
 
-Por padrao, `src/main/Api/appsettings.json` aponta para:
+`src/main/Api/appsettings.json` aponta por padrao para:
 
 ```json
 {
@@ -144,317 +138,279 @@ Por padrao, `src/main/Api/appsettings.json` aponta para:
 }
 ```
 
-Se necessario, altere a connection string para o seu ambiente.
-
-### 4. Executar a API
-
-Na raiz:
+### 4. Executar
 
 ```powershell
 dotnet run --project src\main\Api\Api.csproj
 ```
 
-Ou dentro de `src/main/Api`:
+As migrations pendentes sao aplicadas automaticamente no startup via `MigrateAsync()`.
 
-```powershell
-dotnet run
-```
+### URLs de desenvolvimento
 
-### 5. URLs padrao de desenvolvimento
+- HTTP: `http://localhost:5115`
+- HTTPS: `https://localhost:7272`
+- OpenAPI: `http://localhost:5115/openapi/v1.json`
 
-Segundo `launchSettings.json`:
-
-- `http://localhost:5115`
-- `https://localhost:7272`
-
-### 6. OpenAPI
-
-Em ambiente `Development`, a aplicacao chama `MapOpenApi()`. Em execucao local, a especificacao costuma ficar disponivel em:
-
-- `http://localhost:5115/openapi/v1.json`
-
-## Comandos uteis
-
-```powershell
-dotnet restore src\Backend.slnx
-dotnet build src\Backend.slnx
-dotnet run --project src\main\Api\Api.csproj
-```
-
-### Migrations
-
-As migrations existentes ficam em `src/main/Infrastructure/Migrations`.
-
-O startup executa automaticamente:
-
-```csharp
-await db.Database.MigrateAsync();
-```
-
-Ou seja, ao subir a API, as migrations pendentes sao aplicadas automaticamente no banco configurado.
-
-Se precisar gerar novas migrations manualmente:
-
-```powershell
-dotnet ef migrations add NomeDaMigration --project src\main\Infrastructure\Infrastructure.csproj --startup-project src\main\Api\Api.csproj
-```
+---
 
 ## Configuracao
 
 ### `Api`
 
-- `Api:BaseUrl`
-  URL base publica da API. A aplicacao falha ao iniciar se esse valor estiver vazio.
+| Chave | Descricao |
+|---|---|
+| `Api:BaseUrl` | URL base publica da API. A aplicacao falha ao iniciar se estiver vazia |
 
 ### `AdminAuth`
 
-- `AdminAuth:Email`
-- `AdminAuth:PasswordHash`
-- `AdminAuth:JwtIssuer`
-- `AdminAuth:JwtAudience`
-- `AdminAuth:JwtSecret`
-- `AdminAuth:TokenExpirationMinutes`
+| Chave | Descricao |
+|---|---|
+| `AdminAuth:Email` | Email do administrador |
+| `AdminAuth:PasswordHash` | Hash PBKDF2-SHA256 da senha |
+| `AdminAuth:JwtIssuer` | Issuer do JWT admin |
+| `AdminAuth:JwtAudience` | Audience do JWT admin |
+| `AdminAuth:JwtSecret` | Chave secreta (minimo 32 caracteres) |
+| `AdminAuth:TokenExpirationMinutes` | Expiracao do token (deve ser > 0) |
 
-Regras importantes:
+### `ClientAuth`
 
-- `JwtSecret` precisa ter pelo menos 32 caracteres
-- `TokenExpirationMinutes` precisa ser maior que zero
-- se qualquer chave obrigatoria estiver vazia, a API nao sobe
+| Chave | Descricao |
+|---|---|
+| `ClientAuth:JwtIssuer` | Issuer do JWT cliente |
+| `ClientAuth:JwtAudience` | Audience do JWT cliente |
+| `ClientAuth:TokenExpirationMinutes` | Expiracao do token do cliente |
 
-## Seguranca e autenticacao
+### CORS
 
-### Admin
+A policy `Angular` permite apenas `http://localhost:4200`. Altere `Program.cs` se o frontend rodar em outra origem.
 
-As rotas administrativas usam JWT Bearer.
+### Logging
 
-Endpoint de login:
+Em desenvolvimento, `Microsoft.EntityFrameworkCore.Database.Command: Information` exibe as queries SQL no console.
 
-- `POST /api/Auth/login`
+---
+
+## Autenticacao
+
+### Admin JWT
+
+- Login: `POST /api/Auth/login`
+- Header: `Authorization: Bearer <token>`
+- Rotas protegidas usam `[Authorize]`
 
 Payload:
 
 ```json
-{
-  "email": "admin@cardapioonline.local",
-  "password": "Admin@123"
-}
+{ "email": "admin@cardapioonline.local", "password": "Admin@123" }
 ```
 
 Resposta:
 
 ```json
-{
-  "token": "<jwt>",
-  "expiresAt": "2026-06-20T20:00:00Z",
-  "email": "admin@cardapioonline.local"
-}
+{ "token": "<jwt>", "expiresAt": "...", "email": "admin@cardapioonline.local" }
 ```
 
-Use o token no header:
+### Cliente JWT
 
-```http
-Authorization: Bearer <jwt>
-```
+- Login: `POST /api/Clients/authenticate`
+- Header: `Authorization: Bearer <token>` com scheme `ClientAuth`
+- Rotas protegidas usam `[Authorize(AuthenticationSchemes = ClientAuthOptions.AuthenticationScheme)]`
 
-### Clientes
+Os dois esquemas sao completamente independentes; um token admin nao funciona em rota de cliente e vice-versa.
 
-Clientes nao recebem JWT. A autenticacao do cliente retorna um `ClientDto` com os dados e resumo do historico.
+### Senhas
 
-Endpoint:
+Armazenadas como hash PBKDF2-SHA256 com salt. `IAdminPasswordHasher` e `IClientPasswordHasher` encapsulam a logica.
 
-- `POST /api/Clients/authenticate`
+---
 
-## CORS
+## Entidades do dominio
 
-Existe uma policy chamada `Angular` permitindo apenas:
+### Estabelecimento
 
-- `http://localhost:4200`
-
-Com:
-
-- qualquer header
-- qualquer metodo
-
-Se o frontend rodar em outra origem, sera necessario atualizar `Program.cs`.
-
-## Uploads e arquivos estaticos
-
-O backend chama `UseStaticFiles()` e salva imagens em `wwwroot/uploads/<yyyyMMdd>/`.
-
-Endpoint:
-
-- `POST /api/Uploads/image`
-
-Regras:
-
-- requer autenticacao
-- limite de requisicao: `10_000_000` bytes
-- aceita apenas `Content-Type` iniciado por `image/`
-
-Resposta:
-
-```json
-{
-  "url": "http://localhost:5115/uploads/20260620/arquivo.png"
-}
-```
-
-## Banco de dados
-
-### Provider
-
-- SQL Server via `UseSqlServer`
-
-### Comportamento da connection string
-
-A camada de infraestrutura normaliza a connection string:
-
-- remove `User ID` e `Password` quando `Integrated Security=True`
-- forza `TrustServerCertificate=True`
-- forza `MultipleActiveResultSets=True`
-- habilita retry automatico com `EnableRetryOnFailure(3)`
-
-### Entidades principais
-
-- `Category`
-  Categoria do cardapio com slug unico gerado automaticamente do nome, nome de exibicao e ordem de apresentacao. Categorias sao usadas para organizar os produtos no cardapio publico e no painel administrativo.
-- `Estabelecimento`
-  Dados publicos do restaurante/loja: logo, categoria, endereco, WhatsApp, horarios, taxa de entrega (`DeliveryFee`), flag `SendOrderTrackingViaWhatsApp` para disparo automatico de atualizacoes de status via WhatsApp, parametros de prazo (`PreparationTimeMinutes`, `DeliverySafetyMarginMinutes`) e links opcionais de redes sociais (`InstagramUrl`, `FacebookUrl`, `TikTokUrl`, `TwitterUrl`).
-- `Product`
-  Produto do cardapio com nome, descricao, preco, slug de categoria, imagem, flag `IsActive`, configuracoes de estoque e suporte a promocao (`IsOnPromotion`, `PromotionalPrice`).
-- `InventoryMovement`
-  Historico auditavel de entradas, vendas, cancelamentos, ajustes e perdas de estoque.
-- `Client`
-  Cliente com contato, endereco completo e senha hash.
-- `Order`
-  Pedido com numero unico, cliente vinculado opcionalmente, endereco, origem, tipo (`OrderType`), taxa de entrega (`DeliveryFee`), status, total, itens e snapshot da estimativa de entrega (`EstimatedPreparationMinutes`, `EstimatedTravelMinutes`, `EstimatedDeliveryMinutes`, `EstimatedReadyAt`, `EstimatedDeliveryDeadlineAt`, `MarkedDelayedAt`).
-- `OrderItem`
-  Snapshot dos itens do pedido, incluindo produto vinculado, nome do produto, quantidade e preco unitario. O preco unitario reflete o preco efetivo no momento da compra: preco promocional quando o produto esta em promocao, preco normal caso contrario.
-- `Integration`
-  Configuracoes de integracoes externas em uma estrutura unificada.
-
-## Categorias de produto
-
-As categorias sao entidades dinamicas gerenciadas via CRUD administrativo. O slug e gerado automaticamente a partir do nome no momento da criacao (ex: "Hamburguer" → `hamburguer`, "Porcao" → `porcao`) e nao pode ser alterado posteriormente, garantindo estabilidade das referencias nos produtos.
-
-As 6 categorias iniciais sao criadas automaticamente pela migration:
-
-| Slug | Nome | Ordem |
+| Campo | Tipo | Descricao |
 |---|---|---|
-| `hamburguer` | Hamburguer | 1 |
-| `pizza` | Pizza | 2 |
-| `bebida` | Bebida | 3 |
-| `sobremesa` | Sobremesa | 4 |
-| `porcao` | Porcao | 5 |
-| `outro` | Outro | 6 |
+| Id | int | PK |
+| Name | string | Nome do estabelecimento |
+| LogoUrl | string | URL da logo |
+| Category | string | Tipo (hamburgueria, pizzaria...) |
+| Address | string | Endereco do estabelecimento |
+| Whatsapp | string | Numero WhatsApp |
+| OpenTime | TimeOnly | Horario de abertura |
+| CloseTime | TimeOnly | Horario de fechamento |
+| SendOrderTrackingViaWhatsApp | bool | Envia link de rastreamento via WhatsApp |
+| PreparationTimeMinutes | int | Tempo medio de preparo (minutos) |
+| DeliverySafetyMarginMinutes | int | Margem de seguranca no prazo (minutos) |
+| InstagramUrl | string? | Link Instagram |
+| FacebookUrl | string? | Link Facebook |
+| TikTokUrl | string? | Link TikTok |
+| TwitterUrl | string? | Link Twitter/X |
+| UpdatedAt | DateTimeOffset | Ultima atualizacao |
 
-Uma categoria nao pode ser excluida enquanto houver produtos ativos vinculados a ela.
+### Product
 
-## Enums do dominio
+| Campo | Tipo | Descricao |
+|---|---|---|
+| Id | Guid | PK |
+| Name | string | Nome |
+| Description | string | Descricao |
+| Price | decimal | Preco regular |
+| Category | string | Slug da categoria |
+| ImageUrl | string | URL da imagem |
+| IsOnPromotion | bool | Em promocao |
+| PromotionalPrice | decimal? | Preco promocional |
+| IsActive | bool | Visivel no cardapio |
+| TrackInventory | bool | Controla estoque |
+| StockQuantity | int | Quantidade em estoque |
+| LowStockThreshold | int | Limite de alerta de estoque baixo |
+| CreatedAt | DateTimeOffset | Data de criacao |
+| RowVersion | byte[] | Controle de concorrencia otimista |
 
-### Status do pedido
+### Category
 
-- `Pendente`
-- `EmPreparo`
-- `EmEntrega`
-- `EmAtraso`
-- `Entregue`
-- `Cancelado`
+| Campo | Tipo | Descricao |
+|---|---|---|
+| Id | int | PK |
+| Slug | string | Identificador unico (gerado do nome, imutavel) |
+| Name | string | Nome exibido |
+| SortOrder | int | Ordem de exibicao |
+| IsActive | bool | Ativa no cardapio |
 
-### Origem do pedido
+Categorias seed: `hamburguer`, `pizza`, `bebida`, `sobremesa`, `porcao`, `outro`.
 
-- `WhatsApp`
-- `IFood`
-- `Site`
+### AdditionalGroup / AdditionalItem
 
-### Providers de integracao
+Grupos de personalizacao vinculados a um produto (ex: "Escolha o molho"). Cada grupo define `MinSelections` e `MaxSelections`. Itens de um grupo tem `Name` e `Price`.
 
-- `IFood`
-- `Anotai`
-- `UberEats`
-- `NinetyNineFood`
-- `AiAgents`
-- `WhatsApp`
-- `TakeBlip`
-- `Zenvia`
+### Client
 
-## Paginacao
+| Campo | Tipo | Descricao |
+|---|---|---|
+| Id | Guid | PK |
+| Name | string | Nome completo |
+| Email | string | Email (unico) |
+| Phone | string | Telefone (unico) |
+| ZipCode | string | CEP |
+| Street | string | Logradouro |
+| Number | string | Numero |
+| Neighborhood | string | Bairro |
+| City | string | Cidade |
+| State | string | Estado |
+| Complement | string | Complemento |
+| PasswordHash | string | Hash PBKDF2-SHA256 |
+| RegisteredAt | DateOnly | Data de cadastro |
 
-Listagens de produtos, clientes e pedidos retornam `PaginatedResult<T>`:
+### Order
 
-```json
-{
-  "items": [],
-  "page": 1,
-  "pageSize": 5,
-  "total": 0,
-  "totalPages": 0,
-  "hasPreviousPage": false,
-  "hasNextPage": false
-}
-```
+| Campo | Tipo | Descricao |
+|---|---|---|
+| Id | Guid | PK |
+| Number | string | Numero unico (`P{yyMMddHHmm}{hexAleatorio}`) |
+| ClientId | Guid? | Cliente vinculado (opcional) |
+| ClientName | string | Nome do cliente (snapshot) |
+| ClientPhone | string | Telefone (snapshot) |
+| Address | string | Endereco de entrega |
+| Total | decimal | Total incluindo taxa de entrega |
+| DeliveryFee | decimal | Taxa de entrega (snapshot) |
+| Status | OrderStatus | Status atual |
+| Source | OrderSource | Origem (WhatsApp/IFood/Site) |
+| OrderType | string? | Entrega / Retirada / ConsumoLocal |
+| Note | string? | Observacao do cliente |
+| Date | DateOnly | Data do pedido |
+| CreatedAt | DateTimeOffset | Timestamp de criacao (UTC) |
+| EstimatedPreparationMinutes | int? | Tempo de preparo estimado |
+| EstimatedTravelMinutes | int? | Tempo de deslocamento estimado |
+| EstimatedDeliveryMinutes | int? | Tempo total estimado |
+| EstimatedDeliveryDistanceKm | decimal? | Distancia estimada |
+| EstimatedReadyAt | DateTimeOffset? | Previsao de ficar pronto (UTC) |
+| EstimatedDeliveryDeadlineAt | DateTimeOffset? | Prazo limite (UTC) |
+| MarkedDelayedAt | DateTimeOffset? | Quando foi marcado como atrasado (UTC) |
+| DeliveryStartedAt | DateTimeOffset? | Quando saiu para entrega (UTC) |
 
-Parametros comuns:
+**Status (`OrderStatus`):** `Pendente` → `EmPreparo` → `EmEntrega` → `Entregue` (ou `EmAtraso` / `Cancelado`)
 
-- `page`
-- `pageSize`
+**Origem (`OrderSource`):** `WhatsApp`, `IFood`, `Site`
+
+### OrderItem / OrderItemAdditional
+
+Snapshot dos itens: `ProductId`, `ProductName`, `Quantity`, `UnitPrice` (preco promocional se aplicavel), adicionais selecionados com nome e preco unitario.
+
+### NeighborhoodDeliveryFee
+
+| Campo | Tipo | Descricao |
+|---|---|---|
+| Id | int | PK |
+| Neighborhood | string | Nome do bairro (unico) |
+| Fee | decimal | Valor da taxa |
+| IsActive | bool | Taxa ativa |
+
+Lookup feito por comparacao case-insensitive (collation SQL Server). O nome deve coincidir exatamente com o retorno do ViaCep (`response.bairro`).
+
+### InventoryMovement
+
+| Campo | Tipo | Descricao |
+|---|---|---|
+| Id | Guid | PK |
+| ProductId | Guid | Produto |
+| Type | InventoryMovementType | Entrada / Venda / Cancelamento / Ajuste / Perda |
+| Quantity | int | Quantidade movimentada |
+| BalanceBefore | int | Saldo antes |
+| BalanceAfter | int | Saldo apos |
+| Reason | string | Motivo |
+| OrderId | Guid? | Pedido associado |
+| CreatedAt | DateTimeOffset | Timestamp |
+
+### Integration
+
+Configuracoes de integracoes externas em registro unico por provider. Providers: `IFood`, `Anotai`, `UberEats`, `NinetyNineFood`, `AiAgents`, `WhatsApp`, `TakeBlip`, `Zenvia`.
+
+---
 
 ## Endpoints
 
 ### Auth
 
-- `POST /api/Auth/login`
-  Login administrativo e emissao de JWT.
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| POST | `/api/Auth/login` | Publica | Login admin, retorna JWT |
 
-### Categories
+### Estabelecimento
 
-- `GET /api/Categories`
-  Publico. Lista categorias ativas ordenadas por `SortOrder`.
-- `POST /api/Categories`
-  Protegido. Cria categoria. O slug e gerado automaticamente do nome.
-- `PUT /api/Categories/{id}`
-  Protegido. Atualiza nome e ordem. O slug nao e alterado.
-- `DELETE /api/Categories/{id}`
-  Protegido. Exclui categoria. Falha com 422 se houver produtos ativos na categoria.
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| GET | `/api/Estabelecimento` | Publica | Dados do estabelecimento |
+| PUT | `/api/Estabelecimento` | Admin | Criar ou atualizar |
 
-Resposta de listagem:
-
-```json
-[
-  { "id": 1, "slug": "hamburguer", "name": "Hamburguer", "sortOrder": 1 },
-  { "id": 2, "slug": "bebida",     "name": "Bebida",     "sortOrder": 3 }
-]
-```
-
-Payload de criacao:
+Payload:
 
 ```json
 {
-  "name": "Sobremesa",
-  "sortOrder": 4
+  "name": "Pizzaria Exemplo",
+  "logoUrl": "http://localhost:5115/uploads/20260620/logo.png",
+  "category": "Pizzaria",
+  "address": "Av. Principal, 1000",
+  "whatsapp": "5511999999999",
+  "openTime": "18:00",
+  "closeTime": "23:59",
+  "sendOrderTrackingViaWhatsApp": false,
+  "preparationTimeMinutes": 30,
+  "deliverySafetyMarginMinutes": 10,
+  "instagramUrl": "https://instagram.com/pizzariaexemplo",
+  "facebookUrl": null,
+  "tikTokUrl": null,
+  "twitterUrl": null
 }
 ```
 
-Payload de atualizacao:
+### Produtos
 
-```json
-{
-  "name": "Sobremesas Especiais",
-  "sortOrder": 4
-}
-```
-
-### Products
-
-- `GET /api/Products`
-  Publico. Lista produtos ativos com paginacao.
-  Filtros: `page`, `pageSize`, `category` (slug da categoria)
-- `POST /api/Products`
-  Protegido. Cria produto.
-- `PUT /api/Products/{id}`
-  Protegido. Atualiza produto.
-- `DELETE /api/Products/{id}`
-  Protegido. Faz soft delete, desativando o produto.
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| GET | `/api/Products` | Publica | Listar ativos paginados (`page`, `pageSize`, `category`) |
+| POST | `/api/Products` | Admin | Criar produto |
+| PUT | `/api/Products/{id}` | Admin | Atualizar produto |
+| DELETE | `/api/Products/{id}` | Admin | Soft delete |
 
 Payload de criacao/atualizacao:
 
@@ -473,67 +429,36 @@ Payload de criacao/atualizacao:
 }
 ```
 
-O campo `category` recebe o slug da categoria (minusculas). Valores sao normalizados para minusculas antes da persistencia.
+### Categorias
 
-Os campos de promocao seguem estas regras:
-- `isOnPromotion: false` ou omitido: produto sem promocao; `promotionalPrice` e ignorado e salvo como `null`
-- `isOnPromotion: true`: `promotionalPrice` e obrigatorio, deve ser maior que zero e menor que `price`
-- quando o produto esta em promocao, o pedido grava o `promotionalPrice` como `UnitPrice` no `OrderItem`
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| GET | `/api/Categories` | Publica | Listar ativas por `SortOrder` |
+| POST | `/api/Categories` | Admin | Criar (slug gerado do nome) |
+| PUT | `/api/Categories/{id}` | Admin | Atualizar nome e ordem (slug imutavel) |
+| DELETE | `/api/Categories/{id}` | Admin | Excluir (recusado se houver produtos ativos) |
 
-### Clients
+### Clientes
 
-- `POST /api/Clients`
-  Publico. Cadastra cliente.
-- `POST /api/Clients/authenticate`
-  Publico. Autentica cliente por email e senha.
-- `GET /api/Clients`
-  Protegido. Lista clientes.
-  Filtros: `page`, `pageSize`, `search`
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| POST | `/api/Clients` | Publica | Cadastrar cliente |
+| POST | `/api/Clients/authenticate` | Publica | Login do cliente |
+| GET | `/api/Clients` | Admin | Listar clientes (`page`, `pageSize`, `search`) |
 
-Payload de cadastro:
+### Pedidos
 
-```json
-{
-  "name": "Maria Silva",
-  "email": "maria@email.com",
-  "phone": "11999999999",
-  "zipCode": "01234-567",
-  "street": "Rua A",
-  "number": "123",
-  "neighborhood": "Centro",
-  "city": "Sao Paulo",
-  "state": "SP",
-  "complement": "Apto 12",
-  "password": "SenhaSegura123"
-}
-```
-
-Payload de autenticacao:
-
-```json
-{
-  "email": "maria@email.com",
-  "password": "SenhaSegura123"
-}
-```
-
-### Orders
-
-- `POST /api/Orders`
-  Publico. Cria pedido.
-- `GET /api/Orders/estimate?address={endereco}&orderType=Entrega`
-  Publico. Calcula uma previa de preparo, deslocamento e prazo final antes de o pedido ser criado. Usa a mesma regra de `IDeliveryEstimateService` aplicada no snapshot gravado no pedido.
-- `GET /api/Orders`
-  Protegido. Lista pedidos.
-  Filtros: `page`, `pageSize`, `date` no formato aceito por `DateOnly.TryParse`, `search` para nome do cliente e `activeOnly=true` para ocultar pedidos `Entregue` e `Cancelado`.
-- `PUT /api/Orders/track/{id}/delivered`
-  Publico. Permite que o cliente confirme a entrega pelo acompanhamento, apenas se a loja ja tiver marcado o pedido como `EmEntrega`.
-- `PUT /api/Orders/{id}/advance`
-  Protegido. Avanca o status do pedido.
-- `PUT /api/Orders/{id}/delay`
-  Protegido. Marca manualmente o pedido como `EmAtraso`.
-- `PUT /api/Orders/{id}/cancel`
-  Protegido. Cancela o pedido.
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| POST | `/api/Orders` | Publica | Criar pedido |
+| GET | `/api/Orders/estimate` | Publica | Previa de estimativa (`address`, `orderType`, `neighborhood`) |
+| GET | `/api/Orders` | Admin | Listar pedidos (`page`, `pageSize`, `date`, `search`, `activeOnly`) |
+| GET | `/api/Orders/client` | Cliente | Historico do cliente autenticado |
+| GET | `/api/Orders/track/{id}` | Publica | Rastrear pedido |
+| PUT | `/api/Orders/track/{id}/delivered` | Publica | Cliente confirma recebimento |
+| PUT | `/api/Orders/{id}/advance` | Admin | Avancar status |
+| PUT | `/api/Orders/{id}/delay` | Admin | Marcar como atrasado |
+| PUT | `/api/Orders/{id}/cancel` | Admin | Cancelar pedido |
 
 Payload de criacao:
 
@@ -542,252 +467,187 @@ Payload de criacao:
   "clientName": "Maria Silva",
   "clientPhone": "11999999999",
   "address": "Rua A, 123 - Centro - Sao Paulo/SP",
+  "neighborhood": "Centro",
   "source": "Site",
   "orderType": "Entrega",
   "note": "Sem cebola",
   "items": [
-    {
-      "productId": "00000000-0000-0000-0000-000000000000",
-      "quantity": 2
-    }
+    { "productId": "00000000-0000-0000-0000-000000000000", "quantity": 2 }
   ]
 }
 ```
 
-O campo `orderType` aceita os valores `Entrega`, `Retirada` e `ConsumoLocal`. Quando omitido ou nulo, o pedido e tratado como entrega.
+### Adicionais
 
-Notas tecnicas:
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| GET | `/api/Products/{productId}/additional-groups` | Publica | Listar grupos do produto |
+| POST | `/api/Products/{productId}/additional-groups` | Admin | Criar grupo |
+| PUT | `/api/Products/{productId}/additional-groups/{groupId}` | Admin | Atualizar grupo |
+| DELETE | `/api/Products/{productId}/additional-groups/{groupId}` | Admin | Excluir grupo |
+| POST | `/api/Products/{productId}/additional-groups/{groupId}/items` | Admin | Criar item |
+| PUT | `/api/Products/{productId}/additional-groups/{groupId}/items/{itemId}` | Admin | Atualizar item |
+| DELETE | `/api/Products/{productId}/additional-groups/{groupId}/items/{itemId}` | Admin | Excluir item |
 
-- o numero do pedido e gerado automaticamente no formato `P<timestamp><sufixoHex>`
-- apenas produtos ativos podem entrar no pedido
-- se existir cliente com o mesmo telefone, o pedido e vinculado a ele
-- o total e calculado no backend: `soma dos itens + taxa de entrega (quando aplicavel)`
-- a taxa de entrega e lida do registro do `Estabelecimento` no momento da criacao do pedido e gravada como snapshot no campo `DeliveryFee` do pedido
-- pedidos com `orderType` igual a `Entrega` (ou sem `orderType`) recebem a taxa; `Retirada` e `ConsumoLocal` nao recebem taxa
-- no momento da criacao, o pedido recebe uma estimativa persistida de preparo, deslocamento e prazo final
-- produtos com controle de estoque baixam quantidade na criacao do pedido
-- cancelamentos de pedidos ainda nao entregues repõem o estoque dos itens controlados
+### Taxas de Entrega por Bairro
 
-#### Prazo estimado e status `EmAtraso`
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| GET | `/api/NeighborhoodDeliveryFees` | Admin | Listar taxas |
+| POST | `/api/NeighborhoodDeliveryFees` | Admin | Criar taxa |
+| PUT | `/api/NeighborhoodDeliveryFees/{id}` | Admin | Atualizar taxa |
+| DELETE | `/api/NeighborhoodDeliveryFees/{id}` | Admin | Excluir taxa |
 
-O prazo estimado e calculado no backend no momento da criacao do pedido e fica salvo no proprio `Order`. Isso evita que pedidos antigos mudem de previsao quando o administrador alterar as configuracoes do estabelecimento depois.
+### Estoque
 
-Antes da finalizacao, o endpoint `GET /api/Orders/estimate` permite exibir a mesma previsao no carrinho. Essa previa nao cria pedido e pode variar alguns minutos em relacao ao snapshot final se houver demora entre a consulta e a confirmacao.
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| GET | `/api/Inventory` | Admin | Produtos com status de estoque (`page`, `pageSize`, `status`, `search`) |
+| GET | `/api/Inventory/movements` | Admin | Historico de movimentacoes (`productId`, `page`, `pageSize`) |
+| POST | `/api/Inventory/movements` | Admin | Registrar movimentacao |
 
-Os campos de data/hora do pedido (`CreatedAt`, `EstimatedReadyAt`, `EstimatedDeliveryDeadlineAt`, `MarkedDelayedAt` e `DeliveryStartedAt`) sao mantidos internamente em UTC para comparacoes e automacoes. As respostas da API formatadas para cliente/admin convertem esses valores para o horario de Brasilia antes de retornar.
+### Integracoes (todas requerem Admin)
 
-Para pedidos de entrega, o calculo usa:
+| Metodo | Rota |
+|---|---|
+| GET | `/api/Integrations` |
+| PUT | `/api/Integrations/ifood` |
+| PUT | `/api/Integrations/anotai` |
+| PUT | `/api/Integrations/ubereats` |
+| PUT | `/api/Integrations/99food` |
+| PUT | `/api/Integrations/aiagents` |
+| PUT | `/api/Integrations/whatsapp` |
+| PUT | `/api/Integrations/takeblip` |
+| PUT | `/api/Integrations/zenvia` |
 
-- `PreparationTimeMinutes`: tempo padrao de preparo configurado no estabelecimento
-- `DeliverySafetyMarginMinutes`: margem operacional adicionada ao deslocamento
-- endereco do estabelecimento e endereco do pedido, usando o CEP quando ele estiver presente
-- velocidade media interna calculada pela plataforma conforme a distancia estimada
+### Upload
 
-Formula aplicada:
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| POST | `/api/Uploads/image` | Admin | Upload de imagem (max 10 MB, `image/*`) |
 
-```text
-estimatedTravelMinutes = ceil(estimatedDistanceKm / calculatedAverageDeliverySpeedKmH * 60) + DeliverySafetyMarginMinutes
-EstimatedDeliveryMinutes = PreparationTimeMinutes + estimatedTravelMinutes
-EstimatedDeliveryDeadlineAt = CreatedAt + EstimatedDeliveryMinutes
-```
+Imagens salvas em `wwwroot/uploads/{yyyyMMdd}/` e servidas como arquivos estaticos.
 
-Se o pedido for `Retirada` ou `ConsumoLocal`, o deslocamento fica `0` e o prazo final considera somente o preparo.
+---
 
-Importante: a estimativa atual nao chama API externa de mapas. Ela usa uma heuristica local baseada no CEP de origem/destino; quando nao ha CEP suficiente, usa uma distancia padrao. A implementacao fica isolada em `IDeliveryEstimateService`, permitindo trocar a heuristica por um provedor real de rotas no futuro sem alterar o fluxo de pedidos.
+## Logica de negocio
 
-O backend registra `OrderDelayMonitorService`, um `HostedService` que roda a cada 1 minuto. Ele marca automaticamente como `EmAtraso` os pedidos que:
+### Taxa de entrega por bairro
 
-- possuem `EstimatedDeliveryDeadlineAt`
-- ainda nao foram marcados como atrasados (`MarkedDelayedAt == null`)
-- nao estao finalizados (`Entregue` ou `Cancelado`)
-- passaram do prazo estimado
+- Configurada no admin via `NeighborhoodDeliveryFees`
+- Lookup no backend por comparacao case-insensitive com o campo `neighborhood` do pedido
+- O campo `neighborhood` no payload de criacao do pedido deve corresponder ao nome exato cadastrado no admin
+- No frontend, o bairro vem do ViaCep (`response.bairro`)
+- Taxa e snapshot no momento da criacao do pedido; alteracoes futuras nao afetam pedidos ja criados
+- Pedidos `Retirada` e `ConsumoLocal` tem `DeliveryFee = 0`
 
-Quando isso acontece, o pedido recebe:
+### Estimativa de entrega
 
-- `Status = EmAtraso`
-- `MarkedDelayedAt = DateTime.UtcNow`
+- Calculada por `IDeliveryEstimateService` usando endereco de origem/destino, CEP quando disponivel, `PreparationTimeMinutes` e `DeliverySafetyMarginMinutes`
+- Formula: `estimatedTravelMinutes = ceil(km / velocidadeMedia * 60) + DeliverySafetyMarginMinutes`
+- Preview disponivel em `GET /api/Orders/estimate` antes da criacao
+- Snapshot persistido no pedido; alteracoes nas configuracoes do estabelecimento nao recalculam pedidos antigos
+- Datas/horas mantidas em UTC internamente; convertidas para horario de Brasilia nas respostas
 
-O status tambem pode ser acionado manualmente pelo admin via `PUT /api/Orders/{id}/delay`. Pedidos `EmAtraso` ainda podem ser avancados para `Entregue` pelo fluxo normal de avanco de status.
+### Atraso automatico
 
-Quando a loja avanca um pedido para `EmEntrega`, o backend grava `DeliveryStartedAt`. Esse campo libera a confirmacao de entrega pelo cliente no endpoint publico `PUT /api/Orders/track/{id}/delivered`. A confirmacao pelo cliente so e aceita quando `DeliveryStartedAt` existe e o status atual ainda e `EmEntrega` ou `EmAtraso`; caso contrario, a API retorna regra de negocio recusada.
+`OrderDelayMonitorService` (HostedService) roda a cada 1 minuto e marca como `EmAtraso` pedidos que:
+- Possuem `EstimatedDeliveryDeadlineAt`
+- Nao foram finalizados (`Entregue` ou `Cancelado`)
+- Passaram do prazo e ainda nao foram marcados como atrasados
 
-### Inventory
+O admin tambem pode marcar manualmente via `PUT /api/Orders/{id}/delay`. Pedidos `EmAtraso` ainda podem ser avancados para `Entregue`.
 
-- `GET /api/Inventory`
-  Protegido. Lista produtos ativos com dados de estoque.
-  Filtros: `page`, `pageSize`, `status`, `search`
-- `GET /api/Inventory/movements`
-  Protegido. Lista movimentacoes de estoque.
-  Filtros: `productId`, `page`, `pageSize`
-- `POST /api/Inventory/movements`
-  Protegido. Registra entrada, perda ou ajuste manual.
+### Confirmacao de entrega pelo cliente
 
-Payload de movimentacao:
+Disponivel em `PUT /api/Orders/track/{id}/delivered` apenas quando:
+- O admin avancou o status para `EmEntrega` (gravando `DeliveryStartedAt`)
+- O status atual ainda e `EmEntrega` ou `EmAtraso`
+
+### Numeracao de pedidos
+
+Formato: `P{yyMMddHHmm}{4 chars hex aleatorios}`, com restricao `UNIQUE` no banco.
+
+### Promocoes
+
+- `isOnPromotion: true` exige `promotionalPrice > 0` e `promotionalPrice < price`
+- Quando em promocao, `OrderItem.UnitPrice` recebe `PromotionalPrice`
+- `isOnPromotion: false` zera `PromotionalPrice` no backend independentemente do valor enviado
+
+### Adicionais no pedido
+
+Snapshot do nome e preco no momento do pedido. Mesmo produto com adicionais diferentes gera itens distintos no carrinho.
+
+### Controle de estoque
+
+- Opcional por produto (`TrackInventory`)
+- Criacao do pedido deduz estoque dos itens controlados
+- Cancelamento do pedido restaura o estoque
+
+### Categorias
+
+- Slug gerado automaticamente do nome na criacao e imutavel depois
+- Exclusao bloqueada se houver produtos ativos vinculados (422)
+
+### Paginacao
+
+Todas as listagens retornam `PaginatedResult<T>`:
 
 ```json
 {
-  "productId": "00000000-0000-0000-0000-000000000000",
-  "type": "entrada",
-  "quantity": 10,
-  "newQuantity": null,
-  "reason": "Compra de reposicao"
+  "items": [],
+  "page": 1,
+  "pageSize": 10,
+  "total": 0,
+  "totalPages": 0,
+  "hasPreviousPage": false,
+  "hasNextPage": false
 }
 ```
 
-### Estabelecimento
-
-- `GET /api/Estabelecimento`
-  Publico. Retorna os dados atuais do estabelecimento.
-- `PUT /api/Estabelecimento`
-  Protegido. Cria ou atualiza a configuracao.
-
-Payload:
-
-```json
-{
-  "name": "Pizzaria Exemplo",
-  "logoUrl": "http://localhost:5115/uploads/20260620/logo.png",
-  "category": "Pizzaria",
-  "address": "Av. Principal, 1000",
-  "whatsapp": "5511999999999",
-  "openTime": "18:00",
-  "closeTime": "23:59",
-  "deliveryFee": 5.00,
-  "sendOrderTrackingViaWhatsApp": false,
-  "preparationTimeMinutes": 30,
-  "deliverySafetyMarginMinutes": 10,
-  "instagramUrl": "https://instagram.com/pizzariaexemplo",
-  "facebookUrl": "https://facebook.com/pizzariaexemplo",
-  "tikTokUrl": null,
-  "twitterUrl": null
-}
-```
-
-O campo `deliveryFee` e obrigatorio no payload. Use `0` para nao cobrar taxa. Valores negativos sao normalizados para `0`.
-
-Os campos de redes sociais (`instagramUrl`, `facebookUrl`, `tikTokUrl`, `twitterUrl`) sao opcionais. Strings vazias sao normalizadas para `null` no backend. Os links sao retornados na resposta do `GET /api/Estabelecimento` e exibidos como icones clicaveis no cardapio publico.
-
-### Integrations
-
-Todos os endpoints de integracoes requerem autenticacao.
-
-- `GET /api/Integrations`
-  Retorna o overview de todas as integracoes.
-- `PUT /api/Integrations/ifood`
-- `PUT /api/Integrations/anotai`
-- `PUT /api/Integrations/ubereats`
-- `PUT /api/Integrations/99food`
-- `PUT /api/Integrations/aiagents`
-- `PUT /api/Integrations/whatsapp`
-- `PUT /api/Integrations/takeblip`
-- `PUT /api/Integrations/zenvia`
-
-Payloads esperados:
-
-- `ifood` — `{ "enabled", "clientId", "clientSecret", "merchantId" }`
-- `anotai` — `{ "enabled", "apiToken", "accountId", "webhookUrl" }`
-- `ubereats` — `{ "enabled", "clientId", "clientSecret", "storeId", "webhookSigningSecret" }`
-- `99food` — `{ "enabled", "clientId", "clientSecret", "storeId", "webhookUrl" }`
-- `aiagents` — `{ "enabled", "provider", "apiKey", "model", "assistantId", "webhookUrl" }`
-- `whatsapp` — `{ "enabled", "phoneNumberId", "businessAccountId", "accessToken", "appSecret", "verifyToken" }`
-- `takeblip` — `{ "enabled", "botShortName", "authorizationKey", "webhookUrl" }`
-- `zenvia` — `{ "enabled", "apiToken", "channelId", "webhookUrl" }`
-
-### Uploads
-
-- `POST /api/Uploads/image`
-  Protegido. Faz upload de imagem e retorna URL publica.
-
-## Regras de negocio observadas
-
-- categorias nao podem ser excluidas enquanto houver produtos ativos vinculados
-- slugs de categoria sao gerados automaticamente a partir do nome e sao imutaveis
-- produtos sao retornados apenas se `IsActive = true`
-- exclusao de produto e logica, nao fisica
-- clientes precisam de email unico e telefone unico
-- senha de admin e senha de cliente sao armazenadas com PBKDF2 SHA-256
-- pedidos usam snapshot do nome e preco efetivo do produto no momento da compra
-- o preco efetivo e o `PromotionalPrice` quando `IsOnPromotion = true`, ou o `Price` normal caso contrario
-- `PromotionalPrice` so e aceito quando `IsOnPromotion = true` e deve ser maior que zero e menor que `Price`; quando `IsOnPromotion` e falso, `PromotionalPrice` e zerado no backend independentemente do valor enviado
-- a taxa de entrega aplicada ao pedido e um snapshot do valor configurado no estabelecimento no momento da criacao; alteracoes futuras na taxa nao afetam pedidos ja criados
-- a taxa de entrega incide apenas sobre pedidos do tipo `Entrega` ou sem `orderType`; `Retirada` e `ConsumoLocal` tem `DeliveryFee = 0`
-- a estimativa de entrega aplicada ao pedido tambem e um snapshot calculado no momento da criacao; alteracoes futuras em preparo ou margem nao recalculam pedidos antigos
-- pedidos nao finalizados sao marcados automaticamente como `EmAtraso` quando passam de `EstimatedDeliveryDeadlineAt`
-- o status `EmAtraso` nao substitui o encerramento do pedido; ele ainda pode ser avancado para `Entregue` ou cancelado conforme o fluxo administrativo
-- o `Total` do pedido ja inclui a taxa de entrega: `Total = soma(itens com preco efetivo) + DeliveryFee`
-- listagem de clientes conta apenas pedidos nao cancelados em `ordersCount`
-- `totalSpent` do cliente soma apenas pedidos `Entregue` (incluindo a taxa de entrega, pois o `Total` ja a contempla)
-- a configuracao de estabelecimento e tratada como registro unico
+---
 
 ## Tratamento de erros
 
-O middleware global padroniza respostas:
+| Excecao | Status | Descricao |
+|---|---|---|
+| `ValidationException` | 400 | Erros de validacao do FluentValidation |
+| `UnauthorizedAccessException` | 401 | Acesso negado |
+| `KeyNotFoundException` | 404 | Recurso nao encontrado |
+| `DbUpdateConcurrencyException` | 409 | Conflito de concorrencia otimista |
+| `DbUpdateException` (unique constraint) | 409 | Violacao de unicidade |
+| `InvalidOperationException` | 422 | Regra de negocio violada |
+| Qualquer outra | 500 | Erro inesperado |
 
-- `400 Bad Request`
-  Erros de validacao do FluentValidation
-- `401 Unauthorized`
-  Falha de autenticacao ou acesso indevido
-- `404 Not Found`
-  Recurso nao encontrado
-- `409 Conflict`
-  Violacao de unicidade no banco
-- `422 Unprocessable Entity`
-  Regras de negocio disparando `InvalidOperationException` (ex: excluir categoria com produtos ativos)
-- `500 Internal Server Error`
-  Erro inesperado
-
-Exemplos:
-
-```json
-{
-  "error": "Nao e possivel excluir uma categoria que possui produtos ativos."
-}
-```
-
-```json
-{
-  "errors": [
-    {
-      "propertyName": "Name",
-      "errorMessage": "'Name' must not be empty."
-    }
-  ]
-}
-```
-
-## Observabilidade
-
-### Logging
-
-`appsettings.json` define:
-
-- `Default`: `Information`
-- `Microsoft.AspNetCore`: `Warning`
-
-Em `Development`, tambem ha:
-
-- `Microsoft.EntityFrameworkCore.Database.Command`: `Information`
-
-Isso faz com que queries SQL aparecam no log local durante desenvolvimento.
+---
 
 ## Migrations
 
-| Migration | Descricao |
+| Migration | O que faz |
 |---|---|
-| `20260614211105_InitialCreate` | Schema inicial com Estabelecimento, Products, Clients, Orders e OrderItems |
-| `20260614222358_AddEstabelecimentoLogo` | Campo `LogoUrl` no Estabelecimento |
-| `20260615134836_AddClientAuthentication` | Autenticacao de clientes com hash de senha |
-| `20260615142217_AddClientFullAddress` | Endereco completo do cliente |
-| `20260616145439_AddIntegrations` | Tabela de integracoes externas |
-| `20260620141928_AddUniqueOrderNumber` | Numero unico de pedido |
-| `20260620144545_AlignEstabelecimentoUpdatedAtWithDatabase` | Ajuste de `UpdatedAt` gerado pelo banco |
-| `20260623132455_AddInventoryControl` | Controle de estoque e movimentacoes |
-| `20260624000000_AddCategories` | Tabela `Categories`, seed das 6 categorias iniciais e normalizacao dos slugs em `Products` |
-| `20260626000651_AddDeliveryFee` | Campo `DeliveryFee` em `Estabelecimentos` e campos `DeliveryFee` + `OrderType` em `Orders` |
-| `20260626162000_AddOrderTrackingWhatsAppSetting` | Flag `SendOrderTrackingViaWhatsApp` no Estabelecimento |
-| `20260627000001_AddProductPromotion` | Campos `IsOnPromotion` e `PromotionalPrice` em `Products` |
-| `20260627212017_AddSocialMediaLinks` | Campos opcionais `InstagramUrl`, `FacebookUrl`, `TikTokUrl` e `TwitterUrl` em `Estabelecimentos` |
-| `20260630120000_AddOrderDeliveryEstimate` | Parametros de estimativa no Estabelecimento e snapshot de prazo/atraso em Orders |
-| `20260630123000_AddOrderDeliveryStartedAt` | Campo `DeliveryStartedAt` em Orders para liberar confirmacao de entrega pelo cliente |
-| `20260630124500_RemoveDeliveryAverageSpeedSetting` | Remove a velocidade media de entrega como configuracao do Estabelecimento |
+| `20260614211105_InitialCreate` | Schema inicial: Estabelecimentos, Products, Clients, Orders, OrderItems |
+| `20260614222358_AddEstabelecimentoLogo` | Campo `LogoUrl` em Estabelecimentos |
+| `20260615134836_AddClientAuthentication` | Campo `PasswordHash` em Clients |
+| `20260615142217_AddClientFullAddress` | Endereco completo em Clients |
+| `20260616145439_AddIntegrations` | Tabela Integrations |
+| `20260620141928_AddUniqueOrderNumber` | Restricao unique em `Order.Number` |
+| `20260620144545_AlignEstabelecimentoUpdatedAtWithDatabase` | Default de `UpdatedAt` no banco |
+| `20260623132455_AddInventoryControl` | Tabela InventoryMovements e campos de estoque em Products |
+| `20260624000000_AddCategories` | Tabela Categories, seed das 6 categorias, normalizacao de `Product.Category` |
+| `20260626000651_AddDeliveryFee` | `Order.DeliveryFee`, `Order.OrderType` |
+| `20260626162000_AddOrderTrackingWhatsAppSetting` | `Estabelecimento.SendOrderTrackingViaWhatsApp` |
+| `20260627000001_AddProductPromotion` | `Product.IsOnPromotion`, `Product.PromotionalPrice` |
+| `20260627212017_AddSocialMediaLinks` | Links de redes sociais em Estabelecimentos |
+| `20260630120000_AddOrderDeliveryEstimate` | Campos de estimativa de entrega em Orders |
+| `20260630123000_AddOrderDeliveryStartedAt` | `Order.DeliveryStartedAt` |
+| `20260630124500_RemoveDeliveryAverageSpeedSetting` | Remove campo de velocidade media do Estabelecimento |
+| `20260701011022_AddNeighborhoodDeliveryFees` | Tabela NeighborhoodDeliveryFees |
+| `20260701012911_RemoveEstabelecimentoDeliveryFee` | Remove `DeliveryFee` do Estabelecimento (substituido por taxa por bairro) |
 
+Para gerar nova migration:
+
+```powershell
+dotnet ef migrations add NomeDaMigration --project src\main\Infrastructure\Infrastructure.csproj --startup-project src\main\Api\Api.csproj --configuration Release
+```
+
+Use `--configuration Release` quando o backend estiver rodando em Debug para evitar bloqueio de DLL.
