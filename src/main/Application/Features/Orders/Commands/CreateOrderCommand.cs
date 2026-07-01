@@ -26,7 +26,8 @@ public record CreateOrderCommand(
     IReadOnlyList<CreateOrderItemRequest> Items,
     string? Note = null,
     string? OrderType = null,
-    string? TrackingBaseUrl = null
+    string? TrackingBaseUrl = null,
+    string? Neighborhood = null
 ) : IRequest<OrderDto>;
 
 public class CreateOrderValidator : AbstractValidator<CreateOrderCommand>
@@ -62,7 +63,16 @@ public class CreateOrderHandler(
         var est = await db.Estabelecimentos.AsNoTracking().FirstOrDefaultAsync(ct);
         var isDelivery = string.IsNullOrEmpty(cmd.OrderType) ||
             cmd.OrderType.Equals("entrega", StringComparison.OrdinalIgnoreCase);
-        var deliveryFee = isDelivery ? (est?.DeliveryFee ?? 0) : 0;
+        var deliveryFee = 0m;
+        if (isDelivery)
+        {
+            deliveryFee = !string.IsNullOrWhiteSpace(cmd.Neighborhood)
+                ? await db.NeighborhoodDeliveryFees
+                    .Where(n => n.IsActive && n.Neighborhood == cmd.Neighborhood.Trim())
+                    .Select(n => (decimal?)n.Fee)
+                    .FirstOrDefaultAsync(ct) ?? 0
+                : 0;
+        }
 
         var client = await db.Clients.FirstOrDefaultAsync(c => c.Phone == cmd.ClientPhone, ct);
         if (client is not null)

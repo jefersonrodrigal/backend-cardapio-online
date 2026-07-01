@@ -14,7 +14,6 @@ public class EstabelecimentoConfiguration : IEntityTypeConfiguration<Estabelecim
         builder.Property(e => e.Category).HasMaxLength(50);
         builder.Property(e => e.Address).HasMaxLength(500);
         builder.Property(e => e.Whatsapp).HasMaxLength(20);
-        builder.Property(e => e.DeliveryFee).HasColumnType("decimal(18,2)");
         builder.Property(e => e.SendOrderTrackingViaWhatsApp).HasDefaultValue(false);
         builder.Property(e => e.PreparationTimeMinutes).HasDefaultValue(30);
         builder.Property(e => e.DeliverySafetyMarginMinutes).HasDefaultValue(10);

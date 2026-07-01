@@ -16,5 +16,6 @@ public interface IApplicationDbContext
     DbSet<OrderItemAdditional> OrderItemAdditionals { get; }
     DbSet<InventoryMovement> InventoryMovements { get; }
     DbSet<Integration> Integrations { get; }
+    DbSet<NeighborhoodDeliveryFee> NeighborhoodDeliveryFees { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

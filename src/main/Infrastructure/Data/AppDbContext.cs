@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<OrderItemAdditional> OrderItemAdditionals => Set<OrderItemAdditional>();
     public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
     public DbSet<Integration> Integrations => Set<Integration>();
+    public DbSet<NeighborhoodDeliveryFee> NeighborhoodDeliveryFees => Set<NeighborhoodDeliveryFee>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

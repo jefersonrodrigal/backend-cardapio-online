@@ -45,8 +45,8 @@ public class OrdersController(ISender sender) : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("estimate")]
-    public async Task<IActionResult> GetDeliveryEstimate([FromQuery] string address, [FromQuery] string? orderType, CancellationToken ct) =>
-        Ok(await sender.Send(new GetDeliveryEstimateQuery(address, orderType), ct));
+    public async Task<IActionResult> GetDeliveryEstimate([FromQuery] string address, [FromQuery] string? orderType, [FromQuery] string? neighborhood, CancellationToken ct) =>
+        Ok(await sender.Send(new GetDeliveryEstimateQuery(address, orderType, neighborhood), ct));
 
     [AllowAnonymous]
     [HttpPut("track/{id:guid}/delivered")]

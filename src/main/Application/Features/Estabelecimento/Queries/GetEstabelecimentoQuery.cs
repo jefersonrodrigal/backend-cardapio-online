@@ -35,7 +35,6 @@ public class GetEstabelecimentoHandler(IApplicationDbContext db)
             est.Whatsapp,
             est.OpenTime.ToString("HH:mm"),
             est.CloseTime.ToString("HH:mm"),
-            est.DeliveryFee,
             est.SendOrderTrackingViaWhatsApp,
             est.PreparationTimeMinutes,
             est.DeliverySafetyMarginMinutes,

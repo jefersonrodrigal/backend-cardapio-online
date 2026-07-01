@@ -67,7 +67,8 @@ public record DeliveryEstimateDto(
     int EstimatedDeliveryMinutes,
     decimal EstimatedDeliveryDistanceKm,
     string EstimatedReadyAt,
-    string EstimatedDeliveryDeadlineAt
+    string EstimatedDeliveryDeadlineAt,
+    decimal DeliveryFee
 );
 
 public static class OrderDtoMapper
